@@ -51,6 +51,11 @@ EMBED_SCRIPT_DISPLAY = (
     ('custom', 'Custom')
 )
 
+ORG_TYPES = (
+    ('c3', '501(c)(3)'),
+    ('c4', '501(c)(4)'),
+    ('pac', 'PAC'),
+)
 
 # empty set of choices, for filling in on client-side
 EMPTY_CHOICES = {'': ''}

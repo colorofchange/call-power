@@ -9,9 +9,16 @@ from ..extensions import db, cache
 from ..utils import convert_to_dict
 from ..political_data.adapters import adapt_by_key
 from ..political_data import get_country_data
-from .constants import (STRING_LEN, TWILIO_SID_LENGTH, LANGUAGE_CHOICES,
-                        CAMPAIGN_STATUS, STATUS_PAUSED,
-                        SEGMENT_BY_CHOICES, LOCATION_CHOICES, TARGET_OFFICE_CHOICES)
+from .constants import (
+    STRING_LEN,
+    TWILIO_SID_LENGTH,
+    LANGUAGE_CHOICES,
+    CAMPAIGN_STATUS,
+    STATUS_PAUSED,
+    SEGMENT_BY_CHOICES,
+    LOCATION_CHOICES,
+    TARGET_OFFICE_CHOICES,
+)
 
 
 class Campaign(db.Model):
@@ -26,6 +33,8 @@ class Campaign(db.Model):
     campaign_state = db.Column(db.String(STRING_LEN))
     campaign_subtype = db.Column(db.String(STRING_LEN))
     campaign_language = db.Column(db.String(STRING_LEN))
+
+    org_type = db.Column(db.String(STRING_LEN))
 
     segment_by = db.Column(db.String(STRING_LEN))
     locate_by = db.Column(db.String(STRING_LEN))

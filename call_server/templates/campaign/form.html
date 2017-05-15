@@ -36,6 +36,8 @@
         {% if form.campaign_subtype.choices %}
             {{render_field_default(form.campaign_subtype)}}
         {% endif %}
+
+        {{render_field_default(form.org_type)}}
     </fieldset>
 
     <fieldset class="border">

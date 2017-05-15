@@ -25,6 +25,9 @@
             <tr><td>Country</td><td>{{campaign_data.country_name}} - {{campaign.language_display() }}</td></tr>
             <tr><td>Name</td><td>{{campaign.name}}</td></tr>
             <tr><td>Type</td><td>{{campaign.campaign_type_display()}}</td></tr>
+            {% if campaign.org_type %}
+              <tr><td>Org Type</td><td>{{campaign.org_type}}</td></tr>
+            {% endif %}
             <tr><td>Targets</td><td>{{campaign.targets_display()|safe}}</td></tr>
             <tr><td>Segment By</td><td>{{campaign.segment_display()|safe}}</td></tr>
             <tr><td>Order</td><td>{{campaign.order_display()}}</td></tr>

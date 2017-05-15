@@ -9,8 +9,16 @@ from wtforms_components import PhoneNumberField, read_only
 from wtforms.widgets import TextArea
 from wtforms.validators import Required, Optional, AnyOf, NumberRange, ValidationError
 
-from .constants import (SEGMENT_BY_CHOICES, LOCATION_CHOICES, TARGET_OFFICE_CHOICES, LANGUAGE_CHOICES,
-                        CAMPAIGN_STATUS, EMBED_FORM_CHOICES, EMBED_SCRIPT_DISPLAY)
+from .constants import (
+    SEGMENT_BY_CHOICES,
+    LOCATION_CHOICES,
+    TARGET_OFFICE_CHOICES,
+    LANGUAGE_CHOICES,
+    CAMPAIGN_STATUS,
+    EMBED_FORM_CHOICES,
+    EMBED_SCRIPT_DISPLAY,
+    ORG_TYPES,
+)
 
 from .models import Campaign, TwilioPhoneNumber
 
@@ -64,6 +72,9 @@ class CampaignForm(Form):
                                                 query_factory=TwilioPhoneNumber.available_numbers,
                                                 validators=[Required()])
     allow_call_in = BooleanField(_('Allow Call In'))
+
+    # PRHA (add org type)
+    org_type = SelectField(_('Org Type'), validators=[Required()], choices=ORG_TYPES)
 
     submit = SubmitField(_('Edit Audio'))
     submit_skip_audio = SubmitField(_('Save and Test'))
