@@ -35,6 +35,7 @@ class Campaign(db.Model):
     campaign_language = db.Column(db.String(STRING_LEN))
 
     org_type = db.Column(db.String(STRING_LEN))
+    tags = db.Column(db.Text)
 
     segment_by = db.Column(db.String(STRING_LEN))
     locate_by = db.Column(db.String(STRING_LEN))

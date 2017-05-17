@@ -73,8 +73,8 @@ class CampaignForm(Form):
                                                 validators=[Required()])
     allow_call_in = BooleanField(_('Allow Call In'))
 
-    # PRHA (add org type)
     org_type = SelectField(_('Org Type'), validators=[Required()], choices=ORG_TYPES)
+    tags = TextField(_('Tags'), validators=[Optional()])
 
     submit = SubmitField(_('Edit Audio'))
     submit_skip_audio = SubmitField(_('Save and Test'))

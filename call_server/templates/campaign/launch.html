@@ -35,6 +35,9 @@
             {% if campaign.call_maximum %}
             <tr><td>Call Maximum</td><td>{{campaign.call_maximum}}</td></tr>
             {% endif %}
+            {% if campaign.tags %}
+              <tr><td>Tags</td><td>{{campaign.tags}}</td></tr>
+            {% endif %}
             <tr><td>Allow Call In</td><td>{{campaign.allow_call_in}}</td></tr>
             <tr><td>Phone Numbers</td><td>{% for num in campaign.phone_number_set %}{{num}}{%if not loop.last%},{%endif%}{%endfor%}</td></tr>
 
@@ -88,13 +91,13 @@
 
     <div class="form-group container">
         <div class="form-actions">
-            
+
             <div class="pull-left">
                 <a href="{{url_for('campaign.audio', campaign_id=campaign.id)}}" class="btn btn-primary btn-warning">
                 <span class="glyphicon glyphicon-arrow-left"></span> Back to Audio
                 </a>
             </div>
-            
+
             </div>
             <div class="pull-right">
                 {{render_button(form.submit, {'field':'btn-success', 'icon':'send'}) }}

@@ -53,6 +53,17 @@
         )
       );
 
+      // initialize tag tokenizer
+      engine = new Bloodhound({
+        local: ['501(c)(3)', '501(c)(4)', 'PAC'],
+        datumTokenizer: Bloodhound.tokenizers.whitespace,
+        queryTokenizer: Bloodhound.tokenizers.whitespace
+      });
+
+      $('#tags').tokenfield({
+        typeahead: [null, { source: engine.ttAdapter() }]
+      });
+
       this.checkForCallInCollisions();
     },
 
@@ -69,7 +80,7 @@
 
       var type_choices = nested_field.data('nested-choices');
       var selected_choices = type_choices[country];
-      
+
       // clear existing choices
       nested_field.empty();
       nested_field.append('<option val=""></option>');
@@ -319,13 +330,13 @@
       // campaign segmentation
       isValid = this.validateField($('.form-group.segment_by'), this.validateSegmentBy, 'Campaign type requires custom targeting') && isValid;
       isValid = this.validateField($('.form-group.locate_by'), this.validateLocateBy, 'Please pick a location attribute') && isValid;
-      
+
       // campaign targets
       isValid = this.validateField($('.form-group#set-targets'), this.validateTargetList, 'Add a custom target') && isValid;
 
       // phone numbers
       isValid = this.validateField($('.form-group.phone_number_set'), this.validateSelected, 'Select a phone number') && isValid;
-      
+
       return isValid;
     },
 

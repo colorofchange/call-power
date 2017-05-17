@@ -17,7 +17,7 @@ fieldset.border legend {
 }
 
 /* Generic input controls */
-.control-label.required:after { 
+.control-label.required:after {
    content:"*";
    color:red;
 }
@@ -61,7 +61,7 @@ input.form-control[type="radio"] {
     width: auto;
 }
 
-.input-group-addon.glyphicon { 
+.input-group-addon.glyphicon {
     top: 0;
 }
 
@@ -161,12 +161,11 @@ select.block {
 
 .btn.radio-inline {
     padding-top: 0; /* reset bootstrap .radio-inline */
-    margin-top: 7px; 
+    margin-top: 7px;
 }
 
 .btn.btn-flat {
     text-shadow: 0 1px 0 #fff;
-    
     border-radius: 0;
     border-color: #ccc
 }
@@ -220,4 +219,36 @@ select.block {
 [contenteditable].placeholder {
     color: gray;
     font-style: italic;
+}
+
+/* Tokenizer */
+.twitter-typeahead .tt-query,
+.twitter-typeahead .tt-hint {
+  margin-bottom: 0;
+}
+
+.tt-menu {
+  min-width: 160px;
+  margin-top: 1px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border: 1px solid rgba(0,0,0,.2);
+}
+
+.tt-suggestion {
+  display: block;
+  padding: 3px 20px;
+}
+
+.tt-suggestion.tt-cursor {
+  color: #fff;
+  background-color: #0081c2;
+}
+
+.tt-suggestion.tt-cursor a {
+  color: #fff;
+}
+
+.tt-suggestion p {
+  margin: 0;
 }

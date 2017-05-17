@@ -154,35 +154,52 @@ def configure_login(app):
 
 
 def configure_assets(app):
-    vendor_js = Bundle('bower_components/jquery/dist/jquery.min.js',
-                       'bower_components/bootstrap/dist/js/bootstrap.min.js',
-                       'bower_components/underscore/underscore-min.js',
-                       'bower_components/backbone/backbone.js',
-                       'bower_components/backbone-filtered-collection/backbone-filtered-collection.js',
-                       'bower_components/html.sortable/dist/html.sortable.min.js',
-                       'bower_components/bootstrap-datepicker/dist/js/bootstrap-datepicker.js',
-                       filters='rjsmin', output='dist/js/vendor.js')
+    vendor_js = Bundle(
+        'bower_components/jquery/dist/jquery.min.js',
+        'bower_components/typeahead.js/dist/typeahead.bundle.min.js',
+        'bower_components/bootstrap/dist/js/bootstrap.min.js',
+        'bower_components/underscore/underscore-min.js',
+        'bower_components/backbone/backbone.js',
+        'bower_components/backbone-filtered-collection/backbone-filtered-collection.js',
+        'bower_components/html.sortable/dist/html.sortable.min.js',
+        'bower_components/bootstrap-datepicker/dist/js/bootstrap-datepicker.js',
+        'bower_components/bootstrap-tokenfield/dist/bootstrap-tokenfield.min.js',
+        filters='rjsmin',
+        output='dist/js/vendor.js'
+    )
     assets.register('vendor_js', vendor_js)
 
-    vendor_css = Bundle('bower_components/bootstrap/dist/css/bootstrap.css',
-                        'bower_components/bootstrap/dist/css/bootstrap-theme.css',
-                        'bower_components/bootstrap-datepicker/dist/css/bootstrap-datepicker.css',
-                        filters='cssmin', output='dist/css/vendor.css')
+    vendor_css = Bundle(
+        'bower_components/bootstrap/dist/css/bootstrap.css',
+        'bower_components/bootstrap/dist/css/bootstrap-theme.css',
+        'bower_components/bootstrap-datepicker/dist/css/bootstrap-datepicker.css',
+        'bower_components/bootstrap-tokenfield/dist/css/bootstrap-tokenfield.min.css',
+        filters='cssmin',
+        output='dist/css/vendor.css'
+    )
     assets.register('vendor_css', vendor_css)
 
-    audio_js = Bundle('bower_components/volume-meter/volume-meter.js',
-                      'bower_components/audioRecord/src/audioRecord.js',
-                      filters='rjsmin', output='dist/js/vendor_audio.js')
+    audio_js = Bundle(
+        'bower_components/volume-meter/volume-meter.js',
+        'bower_components/audioRecord/src/audioRecord.js',
+        filters='rjsmin',
+        output='dist/js/vendor_audio.js'
+    )
     assets.register('audio_js', audio_js)
 
-    graph_js = Bundle('bower_components/highcharts/highcharts.js',
-                      'bower_components/chartkick/chartkick.js',
-                      filters='rjsmin', output='dist/js/graph.js')
+    graph_js = Bundle(
+        'bower_components/highcharts/highcharts.js',
+        'bower_components/chartkick/chartkick.js',
+        filters='rjsmin',
+        output='dist/js/graph.js'
+    )
     assets.register('graph_js', graph_js)
 
-    site_js = Bundle('scripts/site.js',
-                     'scripts/site/views/*.js',
-                     output='dist/js/site.js')
+    site_js = Bundle(
+        'scripts/site.js',
+        'scripts/site/views/*.js',
+        output='dist/js/site.js'
+    )
     assets.register('site_js', site_js)
 
     site_css = Bundle('styles/*.css',
@@ -200,7 +217,7 @@ def context_processors(app):
     @app.context_processor
     def inject_sunlight_key():
         return dict(SUNLIGHT_API_KEY=app.config.get('SUNLIGHT_API_KEY', ''))
-    
+
     @app.context_processor
     def inject_now():
         return {'now': datetime.utcnow()}
@@ -237,6 +254,6 @@ def configure_logging(app):
         app.logger.setLevel(logging.WARNING)
     else:
         app.logger.setLevel(logging.ERROR)
-    
+
     if app.config.get('OUTPUT_LOG'):
         app.logger.addHandler(logging.StreamHandler())
