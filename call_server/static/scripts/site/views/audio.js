@@ -142,7 +142,7 @@
     setupTwilioClient: function(capability) {
       //connect twilio API to read text-to-speech
       try {
-        this.twilio = Twilio.Device.setup(capability, {"debug":false});
+        this.twilio = Twilio.Device.setup(capability, {"debug":CallPower.Config.DEBUG | false});
       } catch (e) {
         console.error(e);
         msg = 'Sorry, your browser does not support WebRTC, Text-to-Speech playback may not work.<br/>' +
@@ -153,20 +153,17 @@
 
       this.twilio.incoming(function(connection) {
         connection.accept();
-        // do awesome ui stuff here
-        // $('#call-status').text("you're on a call!");
       });
       this.twilio.error(function(error) {
         console.error(error);
-        var msg = 'Twilio error';
-        var level = 'warning'
-        if (error.info) {
-          msg = msg+': '+error.info.code+' '+error.info.message;
-        } else if (error.message) {
-          msg = msg + ': ' + error.message;
-          level = 'info'; // yes, this is very counterintuitive
+        var message = error.info ? error.info.message : error.message;
+        if (message == "Invalid application SID") {
+          message = message + "<br> Ensure TwiML Application $TWILIO_PLAYBACK_APP will POST to /api/twilio/text-to-speech";
         }
-        window.flashMessage(msg, level);
+        if (error.info) {
+          message = 'Twilio error: '+error.info.code+' '+message;
+        }
+        window.flashMessage(message, 'info');
       });
       this.twilio.connect(function(conn) {
         console.log('Twilio connection', conn.status());

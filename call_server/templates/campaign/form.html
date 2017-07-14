@@ -47,12 +47,31 @@
                                                  'control': control_width,
                                                  'clear': True}) }}
 
+        <div class="form-group special_targets">
+        <label class="control-label col-sm-2"></label>
+            <div class="controls col-sm-6">
+                {{ form.show_special(class_ = 'checkbox-inline') }}
+                {{ render_label(form.show_special, 'inline') }}
+                {% with %}
+                {% if form.include_special.data %}
+                    {% set include_special_style = '' %}
+                {% else %}
+                    {% set include_special_style = 'display:none;' %}
+                {% endif %}
+                <div class="input-group inline" style="{{include_special_style}}">
+                    {{ form.include_special() }}
+                    {{ render_label(form.include_special, 'inline') }}
+                </div>
+                <span class="help-block"></span>
+                {% endwith %}
+            </div>
+        </div>
+
         <div class="form-group hide-initial" id="set-targets">
             {{render_label(form.target_set, label_width)}}
             <div class="controls {{control_width}}">
                 <div class="control-group">
-                    <div class="input-group col-sm-10 left" id="target-search">
-                        <span class="input-group-addon glyphicon glyphicon-search"></span>
+                    <div class="input-group col-xs-10 col-sm-12 col-md-10 left" id="target-search">
                         <div class="search-results open">
                             <input type="text" class="form-control" name="target-search" placeholder="search"/>
                         </div>
@@ -60,19 +79,19 @@
                           <button type="button" class="btn btn-flat btn-white dropdown-toggle" data-toggle="dropdown">Field <span class="caret"></span></button>
                           <ul class="dropdown-menu">
                             <li><a href="#" id="state">State</a></li>
-                            <li><a href="#" id="last_name">Last Name</a></li>
+                            <li><a href="#" id="last_name">Name</a></li>
                             <!--<li><a href="#">Committee</a></li>-->
                           </ul>
                            <input type="hidden" name="search_field" />
                         </div>
                         <span class="input-group-btn">
                             <button class="btn btn-default search" type="button">
-                                <span class="text">Go</span>
+                                <span class="glyphicon glyphicon-search"></span>
                                 <span class="glyphicon glyphicon-repeat spin hide-initial"></span>
                             </button>
                         </span>
                     </div>
-                    <div class="input-group right">
+                    <div class="input-group col-xs-2 right">
                         <button class="btn btn-primary add" type="button">Add</button>
                         <div class="description">
                             <span class="glyphicon glyphicon-info-sign info small"></span>
@@ -128,6 +147,8 @@
             <div class="pull-right"><a class="btn btn-default" href="/admin/system" target="_blank">Get More</a> </div>
         </div>
         {{render_field_default(form.allow_call_in, offset='col-sm-offset-2') }}
+
+        {{render_field_default(form.prompt_schedule, offset='col-sm-offset-2') }}
     </fieldset>
 
     <div class="form-group container">
@@ -157,7 +178,7 @@
 <script type="text/template" id="search-results-dropdown-tmpl">
     <ul class="dropdown-menu open">
       <li role="presentation" class="dropdown-header">
-        Search Results <span class="close btn btn-xs">&times;</span>
+        Search Results <span class="close btn btn-default btn-xs">&times;</span>
       </li>
     </ul>
 </script>
@@ -176,9 +197,9 @@
 </script>
 
 <script type="text/template" id="target-item-tmpl">
-    <span data-field="title" contenteditable placeholder="Title"><%= data.title %></span>
-    <span data-field="name" contenteditable placeholder="Name"><%= data.name %></span>
-    <span data-field="number" contenteditable placeholder="Phone"><%= data.number %></span>
+    <span data-field="title" contenteditable="plaintext-only" placeholder="Title"><%= data.title %></span>
+    <span data-field="name" contenteditable="plaintext-only" placeholder="Name"><%= data.name %></span>
+    <span data-field="number" contenteditable="plaintext-only" placeholder="Phone"><%= data.number %></span>
 
     <div class="pull-right">
         <span class="glyphicon glyphicon-move handle btn btn-xs"></span>

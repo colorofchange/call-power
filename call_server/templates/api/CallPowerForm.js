@@ -22,6 +22,7 @@ var CallPowerForm = function (formSelector, $) {
   this.locationField = this.$("#location_id");
   this.phoneField = this.$("#phone_id");
   {% endif %}
+  this.locateBy = '{{campaign.locate_by}}';
   this.scriptDisplay = 'overlay';
   
   // allow options to override settings
@@ -73,10 +74,21 @@ CallPowerForm.prototype = function() {
   var simpleValidateLocation = function() {
     countryCode = this.country();
 
-    var isValid = false;
-    if (countryCode === 'US') { return cleanUSZipcode(this.locationField.val()); }
-    else if (countryCode === 'CA') { return cleanCAPostal(this.locationField.val()); }
-    else { return this.locationField.val(); }
+    if (this.locationField.length == 1) {
+      var locationVal = this.locationField.val();
+    } else {
+      var locationVal = '';
+      this.locationField.each(function() { 
+        locationVal += (' ' + $(this).val());
+      });
+      locationVal = locationVal.trim();
+    }
+
+    if (this.locateBy === 'postal') {
+      if (countryCode === 'US') { return cleanUSZipcode(locationVal); }
+      else if (countryCode === 'CA') { return cleanCAPostal(locationVal); }
+    }
+    return locationVal;
   };
 
   // very simple country specific length validators
@@ -127,6 +139,10 @@ CallPowerForm.prototype = function() {
     if (response.campaign !== 'live') { return onError(this.form, 'This campaign is not active.'); }
     if (response.call !== 'queued') { return onError(this.form, 'Could not start call.'); }
     if (response.script === undefined) { return false; }
+
+    if (this.phoneDisplay) {
+      $(this.phoneDisplay).html(response.fromNumber);
+    }
 
     if (this.scriptDisplay === 'overlay') {
       // display simple overlay with script content

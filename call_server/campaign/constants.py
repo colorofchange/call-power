@@ -17,6 +17,16 @@ LOCATION_CHOICES = (
     (LOCATION_DISTRICT, 'District')
 )
 
+INCLUDE_SPECIAL_FIRST = 'first'
+INCLUDE_SPECIAL_LAST = 'last'
+INCLUDE_SPECIAL_ONLY = 'only'
+INCLUDE_SPECIAL_CHOCIES = (
+    ('', '- choose order -'),
+    (INCLUDE_SPECIAL_FIRST, 'Before'),
+    (INCLUDE_SPECIAL_LAST, 'After'),
+    (INCLUDE_SPECIAL_ONLY, 'Only If'),
+)
+
 TARGET_OFFICE_DISTRICT = 'district'
 TARGET_OFFICE_BUSY = 'busy'
 # TARGET_OFFICE_CLOSEST = 'closest'

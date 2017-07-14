@@ -2,9 +2,9 @@ import os
 import logging
 import glob
 
-from flask import Flask, g, request, session
-from flask.ext.assets import Bundle
-from flask_sslify import SSLify
+from flask import Flask, g, request, session, render_template
+from flask_assets import Bundle
+
 
 from utils import json_markup, OrderedDictYAMLLoader
 import yaml
@@ -17,10 +17,11 @@ from .admin import admin
 from .user import User, user
 from .call import call
 from .campaign import campaign
+from .schedule import schedule
 from .api import api, configure_restless, restless_preprocessors
 from .political_data import political_data
 
-from extensions import cache, db, babel, assets, login_manager, csrf, mail, store, rest
+from extensions import cache, db, babel, assets, login_manager, csrf, mail, store, rest, rq
 
 DEFAULT_BLUEPRINTS = (
     site,
@@ -28,6 +29,7 @@ DEFAULT_BLUEPRINTS = (
     user,
     call,
     campaign,
+    schedule,
     api,
     political_data
 )
@@ -44,13 +46,16 @@ def create_app(configuration=None, app_name=None, blueprints=None):
     app = Flask(app_name)
     # configure app from object or environment
     configure_app(app, configuration)
-    SSLify(app)
+    if app.config['ENVIRONMENT'] == "Production":
+        from flask_sslify import SSLify
+        SSLify(app)
     # init extensions once we have app context
     init_extensions(app)
     # then blueprints, for url/view routing
     register_blueprints(app, blueprints)
 
     configure_logging(app)
+    configure_error_pages(app)
 
     # then extension specific configurations
     configure_babel(app)
@@ -103,10 +108,13 @@ def init_extensions(app):
     csrf.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
+    rq.init_app(app)
+    app.rq = rq
     store.init_app(app)
     rest.init_app(app, flask_sqlalchemy_db=db,
                   preprocessors=restless_preprocessors)
     rest.app = app
+
 
     if app.config.get('DEBUG'):
         from flask_debugtoolbar import DebugToolbarExtension
@@ -120,6 +128,10 @@ def register_blueprints(app, blueprints):
 
 
 def configure_babel(app):
+    if babel.locale_selector_func:
+        # don't redefine babel when testing or migrating
+        return True
+
     @babel.localeselector
     def get_locale():
         # TODO, first check user config?
@@ -159,14 +171,16 @@ def configure_assets(app):
                        'bower_components/underscore/underscore-min.js',
                        'bower_components/backbone/backbone.js',
                        'bower_components/backbone-filtered-collection/backbone-filtered-collection.js',
+                       'bower_components/backbone.paginator/lib/backbone.paginator.min.js',
+                       'bower_components/bootpag/lib/jquery.bootpag.min.js',
                        'bower_components/html.sortable/dist/html.sortable.min.js',
                        'bower_components/bootstrap-datepicker/dist/js/bootstrap-datepicker.js',
                        filters='rjsmin', output='dist/js/vendor.js')
     assets.register('vendor_js', vendor_js)
 
-    vendor_css = Bundle('bower_components/bootstrap/dist/css/bootstrap.css',
-                        'bower_components/bootstrap/dist/css/bootstrap-theme.css',
+    vendor_css = Bundle('bower_components/bootswatch/cosmo/bootstrap.css',
                         'bower_components/bootstrap-datepicker/dist/css/bootstrap-datepicker.css',
+                        'bower_components/tablesorter/dist/css/theme.bootstrap_3.min.css',
                         filters='cssmin', output='dist/css/vendor.css')
     assets.register('vendor_css', vendor_css)
 
@@ -177,6 +191,9 @@ def configure_assets(app):
 
     graph_js = Bundle('bower_components/highcharts/highcharts.js',
                       'bower_components/chartkick/chartkick.js',
+                      'bower_components/tablesorter/dist/js/jquery.tablesorter.js',
+                      'bower_components/tablesorter/dist/js/jquery.tablesorter.widgets.js',
+                      'bower_components/tablesorter/dist/js/widgets/widget-output.min.js',
                       filters='rjsmin', output='dist/js/graph.js')
     assets.register('graph_js', graph_js)
 
@@ -198,8 +215,8 @@ def context_processors(app):
         return dict(SITENAME=app.config.get('SITENAME', 'CallPower'))
 
     @app.context_processor
-    def inject_sunlight_key():
-        return dict(SUNLIGHT_API_KEY=app.config.get('SUNLIGHT_API_KEY', ''))
+    def inject_openstates_api_key():
+        return dict(OPENSTATES_API_KEY=app.config.get('OPENSTATES_API_KEY', ''))
     
     @app.context_processor
     def inject_now():
@@ -213,6 +230,10 @@ def context_processors(app):
         if not version:
             version = os.environ.get('HEROKU_SLUG_DESCRIPTION')
         return {'version': version}
+
+    @app.context_processor
+    def inject_admin_email():
+        return dict(ADMIN_EMAIL=app.config.get('MAIL_DEFAULT_SENDER', 'info@callpower.org'))
 
     # json filter
     app.jinja_env.filters['json'] = json_markup
@@ -231,12 +252,20 @@ def instance_defaults(app):
 
 
 def configure_logging(app):
-    if app.config.get('DEBUG_INFO'):
-        app.logger.setLevel(logging.INFO)
+    if app.config.get('DEBUG_MORE'):
+        app.logger.setLevel(logging.DEBUG)
     elif app.config.get('DEBUG'):
-        app.logger.setLevel(logging.WARNING)
+        app.logger.setLevel(logging.INFO)
     else:
-        app.logger.setLevel(logging.ERROR)
+        app.logger.setLevel(logging.WARNING)
     
     if app.config.get('OUTPUT_LOG'):
         app.logger.addHandler(logging.StreamHandler())
+
+def configure_error_pages(app):
+    @app.errorhandler(404)
+    def page_not_found(e):
+        return render_template('site/404.html'), 404
+    @app.errorhandler(500)
+    def application_error(e):
+        return render_template('site/500.html'), 500

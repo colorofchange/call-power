@@ -1,21 +1,20 @@
-import json
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 import dateutil
 
 import twilio.twiml
-from flask import Blueprint, Response, render_template, abort, request, jsonify
+from flask import Blueprint, Response, current_app, render_template, abort, request, jsonify
 
-from sqlalchemy.sql import func, extract, distinct
+from sqlalchemy.sql import func, extract, distinct, cast, join
 
 from decorators import api_key_or_auth_required, restless_api_auth
-from ..utils import median
 from ..call.decorators import crossdomain
 
 from constants import API_TIMESPANS
 
-from ..extensions import csrf, rest, db
+from ..extensions import csrf, rest, db, cache
 from ..campaign.models import Campaign, Target, AudioRecording
+from ..political_data.adapters import adapt_by_key, UnitedStatesData
 from ..call.models import Call, Session
 from ..call.constants import TWILIO_CALL_STATUS
 
@@ -77,19 +76,19 @@ def campaigns_overall():
     if timespan not in API_TIMESPANS.keys():
         abort(400, 'timespan should be one of %s' % ','.join(API_TIMESPANS))
     else:
-        timespan_strf = API_TIMESPANS[timespan]
+        timespan_strf, timespan_to_char = API_TIMESPANS[timespan]
 
-    timespan_extract = extract(timespan, Call.timestamp).label(timespan)
+    timestamp_to_char = func.to_char(Call.timestamp, timespan_to_char).label(timespan)
 
     query = (
         db.session.query(
             func.min(Call.timestamp.label('date')),
             Call.campaign_id,
-            timespan_extract,
+            timestamp_to_char,
             func.count(distinct(Call.id)).label('calls_count')
         )
         .group_by(Call.campaign_id)
-        .group_by(timespan_extract)
+        .group_by(timestamp_to_char)
         .order_by(timespan)
     )
 
@@ -110,10 +109,11 @@ def campaigns_overall():
     if end:
         try:
             endDate = dateutil.parser.parse(end)
-            if endDate < startDate:
-                abort(400, 'end should be after start')
-            if endDate == startDate:
-                endDate = startDate + timedelta(days=1)
+            if start:
+                if endDate < startDate:
+                    abort(400, 'end should be after start')
+                if endDate == startDate:
+                    endDate = startDate + timedelta(days=1)
         except ValueError:
             abort(400, 'end should be in isostring format')
         query = query.filter(Call.timestamp <= endDate)
@@ -129,7 +129,7 @@ def campaigns_overall():
         'calls_completed': completed_query.count()
     }
 
-    return Response(json.dumps({'meta': meta,'objects': sorted_dates}), mimetype='application/json')
+    return jsonify({'meta': meta,'objects': sorted_dates})
 
 
 # more detailed campaign statistics
@@ -139,18 +139,24 @@ def campaign_stats(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
 
     # number of sessions started in campaign
-    sessions_started = db.session.query(
-        func.count(Session.id)
+    # total count and average queue_delay
+    sessions_started, queue_avg_timedelta = db.session.query(
+        func.count(Session.id).label('count'),
+        func.avg(Session.queue_delay).label('queue_avg')
     ).filter_by(
         campaign_id=campaign.id
-    ).scalar()
+    ).all()[0]
+    if isinstance(queue_avg_timedelta, timedelta):
+        queue_avg_seconds = queue_avg_timedelta.total_seconds()
+    else:
+        queue_avg_seconds = ''
 
-    # number of sessions completed in campaign
-    sessions_completed = db.session.query(
-        func.count(Session.id)
-    ).filter_by(
-        campaign_id=campaign.id,
-        status='completed'
+    # number of sessions with at least one completed call in campaign
+    sessions_completed = (db.session.query(func.count(Session.id.distinct()))
+        .select_from(join(Session, Call))
+        .filter(Call.campaign_id==campaign.id,
+            Call.status=='completed'
+        )
     ).scalar()
 
     # number of calls completed in campaign
@@ -159,34 +165,50 @@ def campaign_stats(campaign_id):
     ).filter_by(
         campaign_id=campaign.id,
         status='completed'
-    ).all()
+    )
 
-    # list of completed calls per session in campaign
-    calls_session_grouped = db.session.query(
-        func.count(Call.id)
+    # get completed calls per session in campaign
+    calls_per_session = db.session.query(
+        func.count(Call.id.distinct()).label('call_count'),
     ).filter(
         Call.campaign_id == campaign.id,
         Call.status == 'completed',
         Call.session_id != None
     ).group_by(
         Call.session_id
-    ).all()
-    calls_session_list = [int(n[0]) for n in calls_session_grouped]
-    calls_per_session = median(calls_session_list)
+    )
+    calls_per_session_avg = db.session.query(
+        func.avg(calls_per_session.subquery().columns.call_count),
+    )
+    # use this one weird trick to calculate the median
+    # https://stackoverflow.com/a/27826044
+    calls_per_session_med = db.session.query(
+        func.percentile_cont(0.5).within_group(
+            calls_per_session.subquery().columns.call_count.desc()
+        )
+    )
+    # calls_session_list = [int(n[0]) for n in calls_session_grouped.all()]
+    calls_per_session = {
+        'avg': '%.2f' % calls_per_session_avg.scalar() or 0,
+        'med': calls_per_session_med.scalar() or '?'
+    }
 
     data = {
         'id': campaign.id,
         'name': campaign.name,
-        'sessions_completed': sessions_completed,
         'sessions_started': sessions_started,
+        'queue_avg_seconds': queue_avg_seconds,
+        'sessions_completed': sessions_completed,
         'calls_per_session': calls_per_session,
     }
 
     if calls_completed:
+        first_call_completed = calls_completed.first()
+        last_call_completed = calls_completed.order_by(Call.timestamp.desc()).first()
         data.update({
-            'date_start': datetime.strftime(calls_completed[0][0], '%Y-%m-%d'),
-            'date_end': datetime.strftime(calls_completed[-1][0] + timedelta(days=1), '%Y-%m-%d'),
-            'calls_completed': len(calls_completed)
+            'date_start': datetime.strftime(first_call_completed[0], '%Y-%m-%d'),
+            'date_end': datetime.strftime(last_call_completed[0] + timedelta(days=1), '%Y-%m-%d'),
+            'calls_completed': calls_completed.count()
         })
 
     return jsonify(data)
@@ -203,20 +225,20 @@ def campaign_date_calls(campaign_id):
     if timespan not in API_TIMESPANS.keys():
         abort(400, 'timespan should be one of %s' % ','.join(API_TIMESPANS))
     else:
-        timespan_strf = API_TIMESPANS[timespan]
+        timespan_strf, timespan_to_char = API_TIMESPANS[timespan]
 
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
-    timespan_extract = extract(timespan, Call.timestamp).label(timespan)
+    timestamp_to_char = func.to_char(Call.timestamp, timespan_to_char).label(timespan)
 
     query = (
         db.session.query(
             func.min(Call.timestamp.label('date')),
-            timespan_extract,
+            timestamp_to_char,
             Call.status,
             func.count(distinct(Call.id)).label('calls_count')
         )
         .filter(Call.campaign_id == int(campaign.id))
-        .group_by(timespan_extract)
+        .group_by(timestamp_to_char)
         .order_by(timespan)
         .group_by(Call.status)
     )
@@ -231,10 +253,11 @@ def campaign_date_calls(campaign_id):
     if end:
         try:
             endDate = dateutil.parser.parse(end)
-            if endDate < startDate:
-                abort(400, 'end should be after start')
-            if endDate == startDate:
-                endDate = startDate + timedelta(days=1)
+            if start:
+                if endDate < startDate:
+                    abort(400, 'end should be after start')
+                if endDate == startDate:
+                    endDate = startDate + timedelta(days=1)
         except ValueError:
             abort(400, 'end should be in isostring format')
         query = query.filter(Call.timestamp <= endDate)
@@ -248,7 +271,7 @@ def campaign_date_calls(campaign_id):
                 date_string = date.strftime(timespan_strf)
                 dates[date_string][status] = count
     sorted_dates = OrderedDict(sorted(dates.items()))
-    return Response(json.dumps({'objects': sorted_dates}), mimetype='application/json')
+    return jsonify({'objects': sorted_dates})
 
 
 # calls made by target
@@ -295,39 +318,124 @@ def campaign_target_calls(campaign_id):
         db.session.query(
             Target.title,
             Target.name,
+            Target.uid,
             subquery.c.status,
             subquery.c.calls_count
         )
         .join(subquery, subquery.c.target_id == Target.id)
     )
-
     # in case some calls don't get matched directly to targets
     # they are filtered out by join, so hold on to them
     calls_wo_targets = query_calls.filter(Call.target_id == None)
 
     targets = defaultdict(dict)
+    political_data = campaign.get_campaign_data().data_provider
 
     for status in TWILIO_CALL_STATUS:
         # combine calls status for each target
-        for (target_title, target_name, call_status, count) in query_targets.all():
-            target = u'{} {}'.format(target_title, target_name)
+        for (target_title, target_name, target_uid, call_status, count) in query_targets.all():
+            # get more target_data from political_data cache
+            try:
+                target_data = political_data.cache_get(target_uid)[0]
+            except (KeyError,IndexError):
+                target_data = political_data.cache_get(target_uid)
+
+            # use adapter to get title, name and district 
+            if ':' in target_uid:
+                data_adapter = adapt_by_key(target_uid)
+                try:
+                    if target_data:
+                        adapted_data = data_adapter.target(target_data)
+                    else:
+                        adapted_data = data_adapter.target({'title': target_title, 'name': target_name, 'uid': target_uid})
+                except AttributeError:
+                    current_app.logger.error('unable to adapt target_data for %s: %s' % (target_uid, target_data))
+                    adapted_data = target_data
+
+            elif political_data.country_code.lower() == 'us' and campaign.campaign_type == 'congress':
+                # fall back to USData, which uses bioguide
+                if not target_data:
+                    try:
+                        target_data = political_data.get_bioguide(target_uid)[0]
+                    except Exception, e:
+                        current_app.logger.error('unable to get_bioguide for %s: %s' % (target_uid, e))
+                        continue
+
+                if target_data:
+                    try:
+                        data_adapter = UnitedStatesData()
+                        adapted_data = data_adapter.target(target_data)
+                    except AttributeError:
+                        current_app.logger.error('unable to adapt target_data for %s: %s' % (target_uid, target_data))
+                        continue
+                else:
+                    current_app.logger.error('no target_data for %s: %s' % (target_uid, e))
+                    continue
+            else:
+                # no need to adapt
+                adapted_data = target_data
+            
+            targets[target_uid]['title'] = adapted_data.get('title')
+            targets[target_uid]['name'] = adapted_data.get('name')
+            targets[target_uid]['district'] = adapted_data.get('district')
+
             if call_status == status:
-                targets[target][call_status] = targets.get(target, {}).get(call_status, 0) + count
+                targets[target_uid][call_status] = targets.get(target_uid, {}).get(call_status, 0) + count
         try:
-            for (target_title, target_name, call_status, count) in calls_wo_targets.all():
+            for (target_title, target_name, target_uid, call_status, count) in calls_wo_targets.all():
                 if call_status == status:
                     targets['Unknown'][call_status] = targets.get('Unknown', {}).get(call_status, 0) + count
         except ValueError:
             # can be triggered if there are calls without target id
             targets['Unknown'][status] = ''
 
-    return Response(json.dumps({'objects': targets}), mimetype='application/json')
+    return jsonify({'objects': targets})
 
 
-# embed campaign routes, should be public
-# js must be crossdomain
+# returns twilio call sids made to a particular phone number
+# searches phone_hash if available, otherwise the twilio api
+@api.route('/twilio/calls/to/<phone>/', methods=['GET'])
+@api_key_or_auth_required
+def call_sids_for_number(phone):
+
+    if current_app.config['LOG_PHONE_NUMBERS']:
+        phone_hash = Session.hash_phone(str(phone))
+        sessions = db.session.query(Session.id).filter_by(phone_hash=phone_hash).subquery()
+        calls = db.session.query(Call.call_id).filter(Call.session_id.in_(sessions)).distinct()
+        calls_id_list = [c.call_id for c in calls.all()]
+    
+    else:
+        # not stored locally, need to hit twilio for calls matching to_
+        twilio = current_app.config['TWILIO_CLIENT']
+        calls_list = twilio.calls.list(to=phone)
+        calls_id_list = [c.sid for c in calls_list]
+
+    return jsonify({'objects': calls_id_list})
+
+
+# returns information for twilio calls with parent_call_sid
+@api.route('/twilio/calls/info/<sid>/', methods=['GET'])
+@api_key_or_auth_required
+def call_info(sid):
+    twilio = current_app.config['TWILIO_CLIENT']
+    calls = twilio.calls.list(parent_call_sid=sid)
+    calls_sorted = sorted(calls, key=lambda (v): v.start_time)
+    display_fields = ['to', 'from_', 'status', 'duration', 'start_time', 'end_time', 'direction']
+    calls_info = []
+    for call in calls_sorted:
+        call_info = {}
+        for field in display_fields:
+            call_info[field] = getattr(call, field)
+        calls_info.append(call_info)
+
+    return jsonify({'objects': calls_info})
+
+
+# embed js campaign routes, should be public
+# make accessible crossdomain, and cache for 10 min
 @api.route('/campaign/<int:campaign_id>/embed.js', methods=['GET'])
 @crossdomain(origin='*')
+@cache.cached(timeout=600)
 def campaign_embed_js(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
     return render_template('api/embed.js', campaign=campaign, mimetype='text/javascript')
@@ -335,12 +443,14 @@ def campaign_embed_js(campaign_id):
 
 @api.route('/campaign/<int:campaign_id>/CallPowerForm.js', methods=['GET'])
 @crossdomain(origin='*')
+@cache.cached(timeout=600)
 def campaign_form_js(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
     return render_template('api/CallPowerForm.js', campaign=campaign, mimetype='text/javascript')
 
 
 @api.route('/campaign/<int:campaign_id>/embed_iframe.html', methods=['GET'])
+@cache.cached(timeout=600)
 def campaign_embed_iframe(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
     return render_template('api/embed_iframe.html', campaign=campaign)
@@ -368,9 +478,11 @@ def campaign_embed_code(campaign_id):
     return render_template('api/embed_code.html', campaign=campaign)
 
 
-# simple call count
+# simple call count per campaign as json
+# make accessible crossdomain, and cache for 10 min
 @api.route('/campaign/<int:campaign_id>/count.json', methods=['GET'])
 @crossdomain(origin='*')
+@cache.cached(timeout=600)
 def campaign_count(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
 
@@ -392,7 +504,7 @@ def twilio_say():
     voice = request.values.get('voice', 'alice')
     lang = request.values.get('lang', 'en')
 
-    resp = twilio.twiml.Response()
+    resp = twilio.twiml.voice_response.VoiceResponse()
     resp.say(request.values.get('text'), voice=voice, language=lang)
     resp.hangup()
     return str(resp)

@@ -14,7 +14,11 @@
       'change select#campaign_subtype':  'changeCampaignSubtype',
       'change input[name="segment_by"]': 'changeSegmentBy',
 
-      // call limit
+      // include special
+      'change input[name="show_special"]': 'showSpecial',
+      'change select[name="include_special"]': 'changeIncludeSpecial',
+
+      // call limits
       'change input[name="call_limit"]': 'changeCallLimit',
 
       // phone numbers
@@ -38,6 +42,7 @@
       this.changeCampaignCountry();
       this.changeCampaignType();
       this.changeSegmentBy();
+      this.changeIncludeSpecial();
 
       if ($('input[name="call_maximum"]').val()) {
         $('input[name="call_limit"]').attr('checked', 'checked');
@@ -47,7 +52,7 @@
       this.targetListView.loadExistingItems();
 
       $("#phone_number_set").parents(".controls").after(
-        $('<div id="call_in_collisions" class="panel alert-warning col-sm-4 hidden">').append(
+        $('<div id="call_in_collisions" class="alert alert-warning col-sm-4 hidden">').append(
           "<p>This will override call in settings for these campaigns:</p>",
           $("<ul>")
         )
@@ -107,7 +112,7 @@
           // hide target_offices
           $('.form-group.target_offices').hide();
         } else {
-          // congress
+          // legislative, show segmenting and search
           $('.form-group.segment_by').show();
           $('.form-group.locate_by').show();
           $('.form-group.target_offices').show();
@@ -195,8 +200,37 @@
 
       if (segment_by === 'custom') {
         $('#set-targets').show();
+        $('.form-group.special_targets').hide();
       } else {
         $('#set-targets').hide();
+        $('.form-group.special_targets').show();
+        this.showSpecial();
+      }
+    },
+
+    showSpecial: function(event) {
+      var specialGroup = $('select[name="include_special"]').parents('.input-group');
+      if ($('input[name="show_special"]').prop('checked')) {
+        specialGroup.show();
+        $('#set-targets').show();
+      } else {
+        specialGroup.hide();
+        $('#set-targets').hide();
+        $('select[name="include_special"]').val('').trigger('change');
+      }
+    },
+
+    changeIncludeSpecial: function() {
+      var include_special = $('select[name="include_special"]').val();
+
+      if (include_special === 'only') {
+        // target_ordering can only be 'in order' or 'shuffle'
+        $('input[name="target_ordering"][value="upper-first"]').parent('label').hide();
+        $('input[name="target_ordering"][value="lower-first"]').parent('label').hide();
+      } else {
+        // target_ordering can be chamber dependent
+        $('input[name="target_ordering"][value="upper-first"]').parent('label').show();
+        $('input[name="target_ordering"][value="lower-first"]').parent('label').show();
       }
     },
 
@@ -280,13 +314,22 @@
       }
     },
 
+    validateSpecialTargets: function(f) {
+      // if show_special checked, ensure we also have include_special set
+      if ($('input#show_special:checked').val()) {
+        return !!$('select#include_special').val();
+      } else {
+        return true;
+      }
+    },
+
     validateSelected: function(formGroup) {
       return !!$('select option:selected', formGroup).length;
     },
 
     validateField: function(formGroup, validator, message) {
       // first check to see if formGroup is present
-      if (!!formGroup) {
+      if (!formGroup.length) {
         return true;
       }
 
@@ -322,6 +365,7 @@
       
       // campaign targets
       isValid = this.validateField($('.form-group#set-targets'), this.validateTargetList, 'Add a custom target') && isValid;
+      isValid = this.validateField($('.form-group.special_targets'), this.validateSpecialTargets, 'Please pick an order for Special Targets') && isValid;
 
       // phone numbers
       isValid = this.validateField($('.form-group.phone_number_set'), this.validateSelected, 'Select a phone number') && isValid;

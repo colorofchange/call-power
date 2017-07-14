@@ -47,7 +47,7 @@
 
       var location = $('#test_call_location').val();
       var country = $('#test_call_country').val() || $('#test_call_country_other').val();
-      var record = $('#test_call_record').val();
+      var record = $('#test_call_record:checked').val();
 
       $.ajax({
         url: '/call/create',

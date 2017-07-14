@@ -12,6 +12,7 @@ window.CallPowerOptions = {
     phoneField: "{{campaign.embed.phone_sel|default('#phone_id', True)}}",
     locationField: "{{campaign.embed.location_sel|default('#location_id', True)}}",
     scriptDisplay: "{{campaign.embed.script_display|default('overlay', True)}}",
+    {% if campaign.embed.phone_display %}phoneDisplay: "{{campaign.embed.phone_display}}",{%endif%}
     {% if campaign.embed.custom_css %}customCSS: "{{campaign.embed.custom_css}}",{%endif%}
     {% if campaign.embed.custom_js %}customJS: "{{campaign.embed.custom_js|safe}}",{%endif%}
 };</script>

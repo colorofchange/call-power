@@ -280,6 +280,10 @@
         return !!self.filename;
       }, 'Please select a file to upload') && isValid;
 
+      isValid = this.validateField($('.tab-pane.active#upload'), function() {
+        return _.includes(['mp3','wav','aif','aiff','gsm','ulaw'], self.filetype.toLowerCase());
+      }, 'Uploaded file must be an MP3 or WAV. M4A or iPhone Voice Memos will not play back.') && isValid;
+
       isValid = this.validateField($('.tab-pane.active#text-to-speech'), function() {
         return !!self.textToSpeech;
       }, 'Please enter text to read') && isValid;
@@ -318,6 +322,7 @@
         
         var fileType = fileData.name.split('.').pop(-1);
         formData.append('file_type', fileType);
+        this.filetype = fileType;
       }
 
       var self = this;

@@ -1,22 +1,22 @@
 {% from "macros/_form.html" import render_field, render_label %}
 
-{% set button_class = 'btn btn-default col-xs-4' %}
+{% set button_class = 'btn col-xs-4' %}
 
 {% macro render_audio(field, class_={}) %}
 <div class="form-group {{class_.get('group', '')}} {{field.id}} {% if field.errors %}error{% endif %} {%if field.data%}valid{%endif%}">
     {{ render_label(field, class_.get('label', '')) }}
     <div class="input-group col-sm-10">
         <div class="btn-group audio col-sm-6">
-            <button class="{{button_class}} record">
+            <button class="{{button_class}} btn-invert record">
                 <span class="glyphicon glyphicon-record"></span>
                 <span class="text">Record</span>
             </button>
-            <button class="{{button_class}} play">
+            <button class="{{button_class}} btn-invert play">
                 <span class="glyphicon glyphicon-play"></span>
                 <span class="text">Play</span>
                 <audio></audio>
             </button>
-            <button class="{{button_class}} version">
+            <button class="{{button_class}} btn-invert version">
                 <span class="glyphicon glyphicon-repeat"></span>
                 <span class="text">Version</span>
             </button>

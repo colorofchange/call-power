@@ -3,9 +3,9 @@ from datetime import datetime
 
 from flask import (Blueprint, render_template, current_app, request,
                    flash, url_for, redirect, session, abort)
-from flask.ext.mail import Message
-from flask.ext.babel import gettext as _
-from flask.ext.login import login_required, login_user, current_user, logout_user, confirm_login, login_fresh
+from flask_mail import Message
+from flask_babel import gettext as _
+from flask_login import login_required, login_user, current_user, logout_user, confirm_login, login_fresh
 
 from ..extensions import db, mail, login_manager
 
@@ -91,13 +91,12 @@ def create_account():
                          .filter_by(email=email).first()
 
     if user is None:
-        return render_template('user/invalid_invitation.html',
-            email=current_app.config['MAIL_DEFAULT_SENDER'], sitename=current_app.config['SITENAME'])
+        return render_template('user/invalid_invitation.html')
 
     form = CreateUserForm(obj=user)
 
     # can't use form.validate_on_submit, because username and email won't be unique
-    if form.is_submitted() and form.validate_csrf_token(form):
+    if form.is_submitted():
         if form.password.validate(form) \
             and form.password_confirm.validate(form) \
                 and form.phone.validate(form):
@@ -233,7 +232,7 @@ def invite():
         url = url_for('user.create_account',
             email=user.email,
             activation_key=user.activation_key,
-            _external=True)
+            _external=True, _scheme='https')
         body = render_template('user/email/invite_user.txt', sitename=current_app.config['SITENAME'],
             username=user.name,
             url=url)

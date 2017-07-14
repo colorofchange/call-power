@@ -101,9 +101,9 @@
             searchData['key'] = 'us_state:governor:'+query;
           } else {
             // hit OpenStates
-            searchURL = CallPower.Config.SUNLIGHT_STATES_URL;
+            searchURL = CallPower.Config.OPENSTATES_URL;
             searchData = {
-              apikey: CallPower.Config.SUNLIGHT_API_KEY,
+              apikey: CallPower.Config.OPENSTATES_API_KEY,
               state: campaign_state,
             }
             if (chamber === 'upper' || chamber === 'lower') {
@@ -152,16 +152,14 @@
       });
 
       // start spinner
-      $('.btn.search .spin').css('display', 'inline-block');
-      $('.btn.search .text').hide();
+      $('.btn.search .glyphicon').removeClass('glyphicon-search').addClass('glyphicon-repeat spin');
       $('.btn.search').attr('disabled','disabled');
       return true;
     },
 
     renderSearchResults: function(response) {
       // stop spinner
-      $('#target-search .glyphicon.spin').hide();
-      $('.btn.search .text').show();
+      $('.btn.search .glyphicon').removeClass('glyphicon-repeat spin').addClass('glyphicon-search');
       $('.btn.search').removeAttr('disabled');
 
       // clear existing results, errors

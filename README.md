@@ -50,6 +50,8 @@ This application should be easy to host on Heroku, with Docker, or directly on a
 
 Read detailed instrustions at [INSTALLATION.md](INSTALLATION.md)
 
+[![Build Status](https://travis-ci.org/spacedogXYZ/call-power.svg?branch=master)](https://travis-ci.org/spacedogXYZ/call-power)
+[![Coverage Status](https://coveralls.io/repos/github/spacedogXYZ/call-power/badge.svg?branch=master)](https://coveralls.io/github/spacedogXYZ/call-power?branch=master)
 
 Political Data
 --------------

@@ -3,13 +3,13 @@ import datetime
 from flask import (Blueprint, render_template, current_app, request,
                    flash, url_for, redirect, session, abort, jsonify)
 from flask.json import JSONEncoder
-from flask.ext.login import login_required
+from flask_login import login_required
 from flask_store.providers.temp import TemporaryStore
 
 import sqlalchemy
 from sqlalchemy.sql import func, desc
 
-from twilio.util import TwilioCapability
+from twilio.jwt.client import ClientCapabilityToken
 
 from ..extensions import db
 from ..political_data import COUNTRY_CHOICES
@@ -20,6 +20,7 @@ from .models import (Campaign, Target, CampaignTarget,
                      AudioRecording, CampaignAudioRecording,
                      TwilioPhoneNumber)
 from ..call.models import Call
+from ..schedule.models import ScheduleCall
 from .forms import (CountryTypeForm, CampaignForm, CampaignAudioForm,
                     AudioRecordingForm, CampaignLaunchForm,
                     CampaignStatusForm, TargetForm)
@@ -36,7 +37,7 @@ def before_request():
 
 @campaign.route('/')
 def index():
-    campaigns = Campaign.query.order_by(desc(Campaign.status_code)).all()
+    campaigns = Campaign.query.order_by(desc(Campaign.status_code), desc(Campaign.id)).all()
     calls = (db.session.query(Campaign.id, func.count(Call.id))
             .filter(Call.status == 'completed')
             .join(Call).group_by(Campaign.id))
@@ -133,6 +134,10 @@ def form(country_code=None, campaign_type=None, campaign_id=None, campaign_langu
     # will be updated in client
     form.target_set.choices = choice_items(EMPTY_CHOICES)
 
+    # set form.show_special based on value of campaign.include_special
+    if campaign.include_special:
+        form.show_special.data = True
+
     if form.validate_on_submit():
         # can't use populate_obj with nested forms, iterate over fields manually
         for field in form:
@@ -228,7 +233,7 @@ def audio(campaign_id):
     form = CampaignAudioForm()
 
     twilio_client = current_app.config.get('TWILIO_CLIENT')
-    twilio_capability = TwilioCapability(*twilio_client.auth)
+    twilio_capability = ClientCapabilityToken(*twilio_client.auth)
     twilio_capability.allow_client_outgoing(current_app.config.get('TWILIO_PLAYBACK_APP'))
 
     for field in form:
@@ -275,6 +280,7 @@ def upload_recording(campaign_id):
         if file_storage:
             file_storage.filename = "campaign_{}_{}_{}.{}".format(campaign.id, message_key, recording.version, file_type)
             recording.file_storage = file_storage
+            recording.text_to_speech = ''
         else:
             # dummy file storage
             recording.file_storage = TemporaryStore('')
@@ -388,7 +394,9 @@ def launch(campaign_id):
                 'location_sel': form.embed_location_sel.data,
                 'custom_css': form.embed_custom_css.data,
                 'custom_js': form.embed_custom_js.data,
+                'custom_onload': form.embed_custom_onload.data,
                 'script_display': form.embed_script_display.data,
+                'phone_display': form.embed_phone_display.data,
                 'redirect': form.embed_redirect.data
             }
         elif form.embed_type.data == 'iframe':
@@ -418,7 +426,9 @@ def launch(campaign_id):
                 form.embed_location_sel.data = campaign.embed.get('location_sel')
                 form.embed_custom_css.data = campaign.embed.get('custom_css')
                 form.embed_custom_js.data = campaign.embed.get('custom_js')
+                form.embed_custom_onload.data = campaign.embed.get('custom_onload')
                 form.embed_script_display.data = campaign.embed.get('script_display')
+                form.embed_phone_display.data = campaign.embed.get('embed_phone_display')
                 form.embed_redirect.data = campaign.embed.get('redirect')
 
             if campaign.embed.get('script'):
@@ -435,12 +445,25 @@ def status(campaign_id):
     form = CampaignStatusForm(obj=campaign)
 
     if form.validate_on_submit():
-        form.populate_obj(campaign)
-
+        form.populate_obj(campaign)        
         db.session.add(campaign)
         db.session.commit()
 
-        flash('Campaign status updated.', 'success')
+        if campaign.status == 'paused':
+            # unsubscribe outgoing recurring calls
+            scheduled_calls = ScheduleCall.query.filter_by(campaign=campaign)
+            for sc in scheduled_calls:
+                sc.stop_job()
+                db.session.add(sc)
+            db.session.commit()
+            flash('Campaign paused. No more scheduled calls will go out.', 'warning')
+        elif campaign.status == 'archived':
+            # release twilio numbers
+            campaign.phone_number_set = []
+            flash('Campaign archived. Incoming calls will not connect.', 'alert')
+        else:
+            flash('Campaign status updated.', 'success')
+
         return redirect(url_for('campaign.index'))
 
     return render_template('campaign/status.html', campaign=campaign, form=form)
@@ -449,9 +472,9 @@ def status(campaign_id):
 @campaign.route('/<int:campaign_id>/calls', methods=['GET'])
 def calls(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
-    # call lookup handled via api ajax
+    # call lookup handled via api ajax to /api/calls
 
-    start = datetime.date.today()
-    end = start + datetime.timedelta(days=1)
+    start = request.args.get("start") or datetime.date.today()
+    end = request.args.get("end") or (start + datetime.timedelta(days=1))
 
     return render_template('campaign/calls.html', campaign=campaign, start=start, end=end)

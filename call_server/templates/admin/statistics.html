@@ -51,6 +51,10 @@
     <div class="row hide-initial" id="table_display">
         <div class="col-sm-12">
             <label>Call Counts</label>
+            <button class="btn btn-sm btn-primary download pull-right push-down-10 hide-initial">
+                <span class="glyphicon glyphicon-download"></span>
+                Download CSV
+            </button>
             <table class="table table-condensed table-striped" id="table_data"></table>
         </div>
     </div>
@@ -69,25 +73,38 @@
         <td class="col-sm-6"><input id="calls_completed" class="col-sm-12" value="<%= data.calls_completed %>" readonly/></td>
         <td class="col-sm-6"><label class="inline" for="calls_completed">Calls Completed</label></td>
     </tr><% } %>
+    <% if (data.sessions_completed) { %><tr>
+        <td class="col-sm-6"><input id="sessions_completed" class="col-sm-12" value="<%= data.sessions_completed %>" readonly/></td>
+        <td class="col-sm-6"><label class="inline" for="sessions_completed">Individual Callers</label></td>
+    </tr><% } %>
     <% if (data.conversion_rate) { %><tr>
         <td class="col-sm-6"><input id="conversion_rate" class="col-sm-12" value="<%= data.conversion_rate %>" readonly/></td>
         <td class="col-sm-6"><label class="inline" for="conversion_rate">Conversion Rate</label></td>
     </tr><% } %>
     <% if (data.calls_per_session) { %><tr>
-        <td class="col-sm-6"><input id="calls_per_session" class="col-sm-12" value="<%= data.calls_per_session %>" readonly/></td>
-        <td class="col-sm-6"><label class="inline" for="calls_per_session">Session Median</label></td>
+        <td class="col-sm-6">
+            <input id="calls_per_session_avg" class="col-sm-12" value="<%= data.calls_per_session.avg %> avg" readonly/>
+            <input id="calls_per_session_med" class="col-sm-12" value="<%= data.calls_per_session.med %> med" readonly/>
+        </td>
+        <td class="col-sm-6"><label class="inline" for="calls_per_session">Calls per Session</label></td>
+    </tr><% } %>
+    <% if (data.queue_avg_seconds) { %><tr>
+        <td class="col-sm-6"><input id="queue_avg_seconds" class="col-sm-12" value="<%= data.queue_avg_seconds %>" readonly/></td>
+        <td class="col-sm-6"><label class="inline" for="queue_avg_seconds">Queue Avg (sec)</label></td>
     </tr><% } %>
     <% if (data.id) { %><tr>
         <td></td>
         <td class="col-sm-12">
-            <a href="/admin/campaign/<%= data.id %>/calls">call log</a>
+            <a href="/admin/campaign/<%= data.id %>/calls?start=<%= data.date_start %>&end=<%= data.date_end %>">call log</a>
         </td>
     </tr><% } %>
   </script>
 
   <script type="text/template" id="target-data-tmpl">
     <thead><tr>
-        <th>Target</th>
+        <th>Title</th>
+        <th>Name</th>
+        <th>District</th>
         <th>Completed</th>
         <th>Busy</th>
         <th>Failed</th>
@@ -98,7 +115,9 @@
     <tbody>
     <% _.each(targets, function(data, name) { %> 
     <tr>
-        <td><%= name %></td>
+        <td><%= data.title %></td>
+        <td><%= data.name %></td>
+        <td><%= data.district %></td>
         <td><%= data.completed %></td>
         <td><%= data.busy %></td>
         <td><%= data.failed %></td>

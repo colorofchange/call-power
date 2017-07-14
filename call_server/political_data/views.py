@@ -1,6 +1,6 @@
 from flask import (Blueprint, request, jsonify)
 
-from flask.ext.login import login_required
+from flask_login import login_required
 
 from ..extensions import cache
 from . import get_country_data

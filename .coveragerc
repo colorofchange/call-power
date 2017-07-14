@@ -1,0 +1,8 @@
+[run]
+source = call_server
+
+[report]
+omit =  
+    */python?.?/*
+    */site-packages/nose/*
+    *__init__*

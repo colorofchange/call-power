@@ -1,5 +1,5 @@
 from flask import current_app
-from flask.ext.babel import gettext as _
+from flask_babel import gettext as _
 import werkzeug.contrib.cache
 import pickle
 

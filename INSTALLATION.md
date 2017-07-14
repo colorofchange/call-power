@@ -10,11 +10,17 @@ At a minimum, you will need to set:
 
 * SECRET_KEY, to secure login sessions cryptographically
     * This will be created for you automatically if you use the deploy to Heroku button, or you can generate one using with this Javascript one-liner: `chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890-=!@#$%^&*()_+:<>{}[]".split(''); key = ''; for (i = 0; i < 50; i++) key += chars[Math.floor(Math.random() * chars.length)]; alert(key);`
-* SUNLIGHT_API_KEY, to do Congressional lookups. Sign up for one at [SunlightFoundation.com](https://sunlightfoundation.com/api/accounts/register/)
 * TWILIO_ACCOUNT_SID, for an account with at least one purchased phone number
 * TWILIO_AUTH_TOKEN, for the same account
-* INSTALLED_ORG, displayed on the site homepage
+* INSTALLED_ORG, displayed on the site homepage and read in intro messages
 * SITENAME, defaults to CallPower
+
+To lookup individual representatives, you need:
+
+* US Congress contact information is provided in call_server/political_data/data. [Update instructions](/OPEN_DATA_SOURCES.md#update-instructions)
+* OPENSTATES_API_KEY, to perform state legislative lookups. Sign up for one at [OpenStates.org](https://openstates.org/api/register/)
+* GEOCODE_PROVIDER must be one of ('Google', 'Nominatim', or 'SmartyStreets'). We suggest Google for international campaigns.
+* GEOCODE_API_KEY as required by the provider. Google and SmartyStreets require keys, Nominatim does not.
 
 To test Twilio functionality in development, you will need your server to have a web-routable address. 
 
@@ -27,6 +33,7 @@ For production, you will also need to set:
 * DATABASE_URI, a sqlalchemy [connection string](https://pythonhosted.org/Flask-SQLAlchemy/config.html#connection-uri-format) for a postgres or mysql database addresses
 * REDIS_URL, a URI for the Redis server
 * APPLICATION_ROOT to the path where the application will live. If you are using a whole domain or subdomain, this *SHOULD NOT* be defined. Otherwise, it will mess up cookie handling and cause CSRF 400 errors on login.
+* SERVER_NAME to the domain or subdomain on which the application will live
 
 If you are storing assets on Amazon S3, or another [Flask-Store provider](http://flask-store.soon.build)
 
@@ -72,6 +79,11 @@ To install locally and run in debug mode use:
     # run local server for debugging, pass external name from ngrok
     python manager.py runserver --external=SERVERID.ngrok.io
 
+    # if testing scheduled calls, run broker, scheduler and workers in new tabs
+    redis-server
+    python manager.py rq scheduler
+    python manager.py rq worker
+
 When the dev server is running, the front-end will be accessible at [http://localhost:5000/](http://localhost:5000/), and proxied to external routes at [http://ngrok.com](http://ngrok.com).
 
 Unit tests can also be run with:
@@ -101,6 +113,10 @@ To run in production, with compiled assets:
 
     # or point your WSGI server to `call_server.wsgi:application`
     # to load the application directly
+
+    # if you wish to enable recurring outbound calls, you need to run the scheduler and at least one worker
+    python manager.py rq scheduler
+    python manager.py rq worker
     
 Make sure your webserver can serve audio files out of `APPLICATION_ROOT/instance/uploads`. Or if you are using Amazon S3, ensure your buckets are configured for public access.
 

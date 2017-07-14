@@ -36,7 +36,7 @@ class TestUSStateData(BaseTestCase):
         self.assertIsNotNone(self.us_data)
 
     def test_locate_targets(self):
-        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         # returns a list of uids (openstates leg_id)
         self.assertEqual(len(uids), 2)
 
@@ -52,7 +52,7 @@ class TestUSStateData(BaseTestCase):
 
     def test_locate_targets_lower_only(self):
         self.STATE_CAMPAIGN.campaign_subtype = 'lower'
-        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         self.assertEqual(len(uids), 1)
 
         house_rep = self.us_data.get_uid(uids[0])
@@ -62,7 +62,7 @@ class TestUSStateData(BaseTestCase):
 
     def test_locate_targets_upper_only(self):
         self.STATE_CAMPAIGN.campaign_subtype = 'upper'
-        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         self.assertEqual(len(uids), 1)
 
         senator = self.us_data.get_uid(uids[0])
@@ -73,7 +73,7 @@ class TestUSStateData(BaseTestCase):
     def test_locate_targets_ordered_lower_first(self):
         self.STATE_CAMPAIGN.campaign_subtype = 'both'
         self.STATE_CAMPAIGN.target_ordering = 'lower-first'
-        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         self.assertEqual(len(uids), 2)
 
         first = self.us_data.get_uid(uids[0])
@@ -85,7 +85,7 @@ class TestUSStateData(BaseTestCase):
     def test_locate_targets_ordered_upper_first(self):
         self.STATE_CAMPAIGN.campaign_subtype = 'both'
         self.STATE_CAMPAIGN.target_ordering = 'upper-first'
-        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         self.assertEqual(len(uids), 2)
 
         first = self.us_data.get_uid(uids[0])
@@ -100,11 +100,11 @@ class TestUSStateData(BaseTestCase):
         other_location = Location('Boston, MA', (42.355662,-71.065483),
             {'components':{'state':'MA','zipcode':'02111'}})
         
-        uids = locate_targets(other_location, self.STATE_CAMPAIGN, self.mock_cache)
+        uids = locate_targets(other_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
         self.assertEqual(len(uids), 0)
 
     def test_get_state_legid(self):
-        # uses sunlight api directly, not our locate_targets functions
+        # uses openstates api directly, not our locate_targets functions
         self.STATE_CAMPAIGN.campaign_state = 'CA'
 
         legids = self.us_data.get_state_legislators(self.mock_location)

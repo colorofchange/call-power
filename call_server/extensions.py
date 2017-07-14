@@ -1,28 +1,31 @@
 # define flask extensions in separate file, to resolve import dependencies
 
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
-from flask.ext.cache import Cache
+from flask_caching import Cache
 cache = Cache()
 
-from flask.ext.assets import Environment
+from flask_assets import Environment
 assets = Environment()
 
-from flask.ext.babel import Babel
+from flask_babel import Babel
 babel = Babel()
 
-from flask.ext.mail import Mail
+from flask_mail import Mail
 mail = Mail()
 
-from flask.ext.login import LoginManager
+from flask_login import LoginManager
 login_manager = LoginManager()
 
-from flask.ext.restless import APIManager
+from flask_restless import APIManager
 rest = APIManager()
 
-from flask_wtf.csrf import CsrfProtect
-csrf = CsrfProtect()
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect()
 
-from flask.ext.store import Store
+from flask_store import Store
 store = Store()
+
+from flask_rq2 import RQ
+rq = RQ()

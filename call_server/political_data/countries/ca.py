@@ -1,4 +1,4 @@
-from flask.ext.babel import gettext as _
+from flask_babel import gettext as _
 
 import represent
 from . import DataProvider, CampaignType
@@ -7,7 +7,6 @@ from ..geocode import Geocoder, LocationError
 from ..constants import CA_PROVINCE_ABBR_DICT
 from ...campaign.constants import (LOCATION_POSTAL, LOCATION_ADDRESS, LOCATION_LATLON)
 
-import random
 import logging
 log = logging.getLogger(__name__)
 
@@ -180,6 +179,7 @@ class CADataProvider(DataProvider):
         # we don't have an easy mapping of postcode to riding
         # so just hit OpenNorth with every request and cache responses
         log.info('no data to load for political_data.countries.ca')
+        self.cache_set('political_data:ca', ['data sourced from represent.opennorth.ca',])
         return 0
         
 
@@ -213,6 +213,10 @@ class CADataProvider(DataProvider):
             keys.append(cache_key)
 
         return keys
+
+
+    def get_uid(self, uid):
+        return [self.cache_get(uid, dict())]
 
 
     def get_boundary_key(self, boundary_key):

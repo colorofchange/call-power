@@ -8,6 +8,7 @@
     events: {
       'change select[name="campaigns"]': 'changeCampaign',
       'change select[name="timespan"]': 'renderChart',
+      'click .btn.download': 'downloadTable',
     },
 
     initialize: function() {
@@ -21,20 +22,34 @@
       this.$el.on('changeDate', _.debounce(this.renderChart, this));
 
       this.chartOpts = {
-        discrete: true,
         library: {
           canvasDimensions:{ height:250},
           xAxis: {
             type: 'datetime',
             dateTimeLabelFormats: {
-                day: '%e. %b'
-            }
+                day: '%b %e',
+                week: '%b %e',
+                month: '%b %y',
+                year: '%Y',
+            },
           },
           yAxis: { allowDecimals: false, min: null },
         }
       };
       this.summaryDataTemplate = _.template($('#summary-data-tmpl').html(), { 'variable': 'data' });
       this.targetDataTemplate = _.template($('#target-data-tmpl').html(), { 'variable': 'targets'});
+
+      $.tablesorter.addParser({
+        id: 'lastname',
+        is: function(s) {
+          return false;
+        },
+        format: function(s) {
+          var parts = s.split(" ");
+          return parts[1];
+        },
+        type: 'text'
+      });
 
       this.renderChart();
     },
@@ -98,7 +113,7 @@
         chartDataUrl += ('&end='+end);
       }
 
-      $('#chart_display').html('loading');
+      $('#chart_display').html('<span class="glyphicon glyphicon-refresh spin"></span> Loading...');
       $.getJSON(chartDataUrl, function(data) {
         if (self.campaignId) {
           // calls for this campaign by date, map to series by status
@@ -128,7 +143,7 @@
             // filter out series that have no data
             var seriesFiltered = _.filter(series, function(line) {
               return line.data.length
-            })
+            });
 
             if (seriesFiltered.length) {
               // chart as curved lines
@@ -157,17 +172,43 @@
           tableDataUrl += ('&end='+end);
         }
 
-        $('table#table_data').html('loading');
-        $.getJSON(tableDataUrl, function(data) {
+        $('table#table_data').html('<span class="glyphicon glyphicon-refresh spin"></span> Loading...');
+        $('#table_display').show();
+        $.getJSON(tableDataUrl).success(function(data) {
           var content = self.targetDataTemplate(data.objects);
-          $('table#table_data').html(content);
-          $('#table_display').show();
+          return $('table#table_data').html(content).promise();
+        }).then(function() {
+          return $('table#table_data').tablesorter({
+            theme: "bootstrap",
+            headerTemplate: '{content} {icon}',
+            headers: {
+              1: {
+                sorter:'lastname'
+              }
+            },
+            sortList: [[3,1]],
+            sortInitialOrder: "asc",
+            widgets: [ "uitheme", "columns", "zebra", "output"],
+            widgetOptions: {
+              zebra : ["even", "odd"],
+              output_delivery: 'download',
+              output_saveFileName: 'callpower-export.csv'
+            }
+          }).promise();
+        }).then(function() {
+          $('.btn.download').show();
+          // don't know why this is necessary, but it appears to be
+          setTimeout(function() {
+            $('table#table_data').trigger("updateAll");
+          }, 10);
         });
       } else {
-        $('#table_display').hide()
+        $('#table_display').hide();
       }
-    }
+    },
 
+    downloadTable: function(event) {
+      $('table#table_data').trigger('outputTable');
+    },
   });
-
 })();

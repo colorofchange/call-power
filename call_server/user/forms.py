@@ -2,14 +2,14 @@
 
 from flask import Markup
 
-from flask.ext.wtf import Form
-from flask.ext.babel import gettext as _
+from flask_wtf import FlaskForm
+from flask_babel import gettext as _
 from wtforms import (HiddenField, BooleanField, TextField,
                      PasswordField, SubmitField,
                      RadioField, DateField)
 from wtforms.validators import ValidationError, Required, Length, EqualTo, Email, AnyOf
 from wtforms_components import PhoneNumberField
-from flask_wtf.html5 import EmailField
+from wtforms.fields.html5 import EmailField
 
 from .models import User
 from .constants import (PASSWORD_LEN_MIN, PASSWORD_LEN_MAX,
@@ -17,7 +17,7 @@ from .constants import (PASSWORD_LEN_MIN, PASSWORD_LEN_MAX,
                         USER_ROLE, USER_STATUS)
 
 
-class LoginForm(Form):
+class LoginForm(FlaskForm):
     next = HiddenField()
     login = TextField(_('Username or email'), [Required()])
     password = PasswordField(_('Password'), [Required(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)])
@@ -25,7 +25,7 @@ class LoginForm(Form):
     submit = SubmitField(_('Sign in'))
 
 
-class UserRoleForm(Form):
+class UserRoleForm(FlaskForm):
     next = HiddenField()
     role_code = RadioField(_("Role"), [AnyOf([str(val) for val in USER_ROLE.keys()])],
                            choices=[(str(val), label) for val, label in USER_ROLE.items()])
@@ -34,7 +34,7 @@ class UserRoleForm(Form):
     submit = SubmitField(_('Save'))
 
 
-class CreateUserForm(Form):
+class CreateUserForm(FlaskForm):
     next = HiddenField()
     email = EmailField(_('Email'), [Required(), Email()])
     name = TextField(_('Username'), [Required(), Length(USERNAME_LEN_MIN, USERNAME_LEN_MAX)])
@@ -44,7 +44,7 @@ class CreateUserForm(Form):
     submit = SubmitField(_('Save'))
 
 
-class UserForm(Form):
+class UserForm(FlaskForm):
     next = HiddenField()
     email = EmailField(_('Email'), [Required(), Email()])
     name = TextField(_('Username'), [Required(), Length(USERNAME_LEN_MIN, USERNAME_LEN_MAX)])
@@ -52,7 +52,7 @@ class UserForm(Form):
     submit = SubmitField(_('Save'))
 
 
-class InviteUserForm(Form):
+class InviteUserForm(FlaskForm):
     name = TextField(_('Username'), [Required(), Length(USERNAME_LEN_MIN, USERNAME_LEN_MAX)])
     email = EmailField(_('Email'), [Email()])
     submit = SubmitField(_('Send instructions'))
@@ -66,18 +66,18 @@ class InviteUserForm(Form):
             raise ValidationError(_('This email is already registered'))
 
 
-class RecoverPasswordForm(Form):
+class RecoverPasswordForm(FlaskForm):
     email = EmailField(_('Email'), [Email()])
     submit = SubmitField(_('Send instructions'))
 
 
-class RemoveUserForm(Form):
+class RemoveUserForm(FlaskForm):
     username = HiddenField()
     confirm_username = TextField(_('Confirm Username'), [EqualTo('username', message="Usernames don't match")])
     submit = SubmitField('Confirm Removal')
 
 
-class ChangePasswordForm(Form):
+class ChangePasswordForm(FlaskForm):
     email = HiddenField()
     activation_key = HiddenField()
     password = PasswordField(u'Password', [Required(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)])
@@ -85,7 +85,7 @@ class ChangePasswordForm(Form):
     submit = SubmitField('Save')
 
 
-class ReauthForm(Form):
+class ReauthForm(FlaskForm):
     next = HiddenField()
     password = PasswordField(u'Password', [Required(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)])
     submit = SubmitField('Reauthenticate')

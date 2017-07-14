@@ -7,6 +7,11 @@ var main = function($) {
       $.getScript("{{ url_for('static', filename='embed/overlay.js', _external=True) }}");
       $('head').append('<link rel="stylesheet" href="{{ url_for("static", filename="embed/overlay.css", _external=True) }}" />');
     {% endif %}
+    {% if campaign.embed.get('custom_onload') %}
+      /* the following comes from campaign {{campaign.id}}'s custom_onload script */
+      {{campaign.embed.get('custom_onload')}}
+      /* end custom */
+    {% endif %}
   {% else %}
     {# if embed not defined, try to attach to the first form we see #}
     callPowerForm = new CallPowerForm('form', $);

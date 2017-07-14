@@ -1,3 +1,4 @@
 # Mirror heroku requirements
 # because their automatic build process isn't overrideable
+six==1.10.0
 -r requirements/heroku.txt

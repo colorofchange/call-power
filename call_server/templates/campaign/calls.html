@@ -37,6 +37,24 @@
                 <input type="text" name="end" placeholder="end" value="{{end}}"/>
             </div>
         </div>
+        
+        <div class="row">
+            <div class="col-sm-2">
+                <label class="inline">User Phone</label>
+            </div>
+            <div class="input-group col-sm-5" id="call-search">
+                <div class="search-results open">
+                    <input type="text" class="form-control" name="call-search" placeholder="search"/>
+                </div>
+                <span class="input-group-btn">
+                    <button class="btn btn-default search" type="button">
+                        <span class="glyphicon glyphicon-search"></span>
+                        <span class="glyphicon glyphicon-repeat spin hide-initial"></span>
+                    </button>
+                </span>
+                <input type="hidden" name="call_sids" value="null" />
+            </div>
+        </div>
         </fieldset>
     </form>
 
@@ -44,7 +62,7 @@
         <thead>
             <tr>
                 <th>Timestamp</th>
-                <th>Twilio ID</th>
+                <th>Session ID</th>
                 <th>Target</th>
                 <th>Status</th>
                 <th>Duration</th>
@@ -53,15 +71,57 @@
         </thead>
         <tbody></tbody>
     </table>
+
+    <div id="calls-list-paginator"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script type="text/template" id="call-log-tmpl">
-    <td><%= (new Date(data.timestamp)).toUTCString() %> </td>
-    <td><a target="_blank" href="https://www.twilio.com/user/account/log/calls/<%= data.call_id %>"> <%= data.call_id %></a></td>
+    <td><%= (new Date(data.timestamp+'Z')).toUTCString() %> </td>
+    <td><a class="info-modal" href="#" data-sid="<%= data.call_id %>"><%= data.call_id %></a></td>
     <td><%= data.target_display %></td>
     <td><%= data.status %></td>
     <td><%= data.duration %></td>
+</script>
+
+<script type="text/template" id="call-info-tmpl">
+<div class="modal-dialog modal-lg">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">
+                <span aria-hidden="true">&times;</span>
+            </button>
+          <h4 class="modal-title">Twilio Call Legs</h4>
+          <h5>Parent ID: <a href="https://www.twilio.com/console/voice/logs/calls/<%= data.sid %>" target="_blank"><%= data.sid %></a></h5>
+        </div>
+        <div class="container-fluid">
+            <div class="row">
+                <table class="table">
+                    <thead>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                    </thead>
+                    <tbody>
+                    <% _.each(data.objects, function(call) { %> 
+                    <tr>
+                        <td><%= (new Date(call.start_time)).toUTCString() %> </td>
+                        <td><%= (new Date(call.end_time)).toUTCString() %></td>
+                        <td><%= call.from_ %></td>
+                        <td><%= call.to %></td>
+                        <td><%= call.duration %></td>
+                        <td><%= call.status %></td>
+                    </tr>
+                    <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 </script>
 {% endblock %}

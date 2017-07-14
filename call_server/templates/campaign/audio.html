@@ -56,13 +56,32 @@
                 {{ render_audio_default(form.msg_invalid_location) }}
                 {# {{ render_audio_default(form.msg_choose_target) }} #}
             </div>
+        </div>
+
+        <div class="input-group col-sm-2">
+            <button type="button" class="btn btn-link btn-sm" data-toggle="collapse" data-target="#schedule">scheduling</button>
+        </div>
+        <div class="panel panel-info collapse {% if campaign.prompt_schedule %}in{%endif%}" id="schedule">
+            {# hide these fields by default #}
+            <div class="panel-heading">
+                <h3 class="panel-title">Additional Scheduling</h3>
             </div>
+
+            <div class="panel-body">
+                {{ render_audio_default(form.msg_prompt_schedule) }}
+                {{ render_audio_default(form.msg_alter_schedule) }}
+                {{ render_audio_default(form.msg_schedule_start) }}
+                {{ render_audio_default(form.msg_schedule_stop) }}
+            </div>
+        </div>
         
         {{ render_audio_default(form.msg_call_block_intro) }}
         {{ render_audio_default(form.msg_target_intro) }}
         {{ render_audio_default(form.msg_target_busy) }}
         {{ render_audio_default(form.msg_between_calls) }}
         {{ render_audio_default(form.msg_final_thanks) }}
+
+        {{ render_audio_default(form.msg_campaign_complete) }}
 
     </fieldset>
 

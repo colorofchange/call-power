@@ -1,6 +1,6 @@
 import nose
 
-from flask.ext.testing import TestCase
+from flask_testing import TestCase
 
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path

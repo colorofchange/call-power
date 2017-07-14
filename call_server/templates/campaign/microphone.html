@@ -73,8 +73,8 @@
                                     <label class="control-label col-xs-2" for="file">Upload</label>
                                     <span class="btn btn-default btn-file">
                                         <span class="glyphicon glyphicon-open"></span> Choose File
-                                        <input type="file" name="file_storage" accept=".mp3,.wav,.aif,.aiff,.gsm,.ulaw,audio/mpeg,audio/wav,audio/wave,audio/x-wav,audio/aiff,audio/x-aifc,audio/x-aiff,audio/x-gsm,audio/gsm,audio/ulaw" />
-
+                                        <input type="file" name="file_storage" accept=".mp3,.wav,.aif,.aiff,.gsm,.ulaw,audio/mp3,audio/wav,audio/wave,audio/x-wav,audio/aiff,audio/x-aifc,audio/x-aiff,audio/x-gsm,audio/gsm,audio/ulaw" />
+                                        <!-- do not include audio/mpeg here, because that would let .m4a files through, which Twilio does not like -->
                                     </span>
                                     <span class="filename"><%= modal.filename %></span>
                                 </div>

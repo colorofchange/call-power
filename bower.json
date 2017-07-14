@@ -1,7 +1,7 @@
 {
-  "name": "Call Power",
-  "version": "0.0.0",
-  "homepage": "https://github.com/EFForg/call-congress",
+  "name": "callpower",
+  "version": "1.2.6",
+  "homepage": "https://github.com/spacedogXYZ/call-power",
   "description": "Connecting people to power through their phones",
   "authors": [
     "Josh Levinger <josh@spacedog.xyz>",
@@ -23,13 +23,17 @@
   ],
   "dependencies": {
     "bootstrap": "~3.3.5",
-    "backbone": "~1.1.2",
+    "bootswatch": "^3.3.7",
+    "backbone": "^1.2.3",
     "html.sortable": "0.2.8",
     "volume-meter": "https://github.com/cwilso/volume-meter.git",
     "audioRecord": "https://github.com/sb2702/audioRecord.js.git",
     "backbone-filtered-collection": "~0.4.0",
     "highcharts": "~4.1.7",
     "chartkick": "~1.4.0",
-    "bootstrap-datepicker": "~1.4.0"
+    "bootstrap-datepicker": "~1.4.0",
+    "tablesorter": "https://github.com/Mottie/tablesorter.git",
+    "backbone.paginator": "^2.0.5",
+    "bootpag": "^1.0.7"
   }
 }

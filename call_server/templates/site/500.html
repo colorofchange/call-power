@@ -1,0 +1,8 @@
+{% set page_title = _("Application Error") %}
+{% extends "layouts/base.html" %}
+
+{% block body %}
+  <h1>Application Error</h1>
+  <p>Sorry, something seems to have gone wrong.<p>
+  <p><a href="mailto:{{ADMIN_EMAIL}}">Your administrator</a> has been notified automatically</p>
+{% endblock %}

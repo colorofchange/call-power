@@ -1,8 +1,7 @@
 {% extends "layouts/base.html" %}
 
 {% block navbar %}
-<div class="container-fluid">
-  <nav class="navbar navbar-default navbar-static-top">
+  <nav class="navbar navbar-inverse navbar-static-top">
     <div class="container-fluid">
       <div class="navbar-header">
         <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
@@ -54,11 +53,10 @@
 <script>
     window.CallPower = {
       Config: {
-        SUNLIGHT_API_KEY: "{{SUNLIGHT_API_KEY}}",
-        SUNLIGHT_CONGRESS_URL: "https://congress.api.sunlightfoundation.com/legislators/",
-        SUNLIGHT_STATES_URL: "https://openstates.org/api/v1/legislators/",
+        OPENSTATES_URL: "https://openstates.org/api/v1/legislators/",
+        OPENSTATES_API_KEY: "{{OPENSTATES_API_KEY}}",
         OPENNORTH_URL: "https://represent.opennorth.ca/",
-        {% if twilio_capability %}TWILIO_CAPABILITY: "{{twilio_capability.generate()}}", {%endif%}
+        {% if twilio_capability %}TWILIO_CAPABILITY: "{{twilio_capability.to_jwt()|safe}}", {%endif%}
       }
     };
 </script>

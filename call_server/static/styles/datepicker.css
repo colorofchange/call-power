@@ -6,6 +6,19 @@
 	border-radius: 0 0 0 0;
 }
 
+#callpower .datepicker {
+	border-radius: 0;
+}
+
+#callpower .datepicker td,
+#callpower .datepicker th {
+	border-radius: 0;
+}
+
+#callpower .datepicker .active {
+	background: #006dcc;
+}
+
 #callpower .input-daterange .add-on {
 	display: inline-block;
 	width: auto;

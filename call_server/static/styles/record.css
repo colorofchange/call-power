@@ -104,3 +104,7 @@ button .text.inline { display: inline; }
     cursor: inherit;
     display: block;
 }
+
+.btn-group.audio button.btn-invert {
+    border: 1px solid gray;
+}

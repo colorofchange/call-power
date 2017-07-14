@@ -13,3 +13,6 @@ call_server/static/.webassets-cache
 /docker-compose.yml
 instance/uploads
 /node_modules
+.coverage
+cover
+.coveralls.yml

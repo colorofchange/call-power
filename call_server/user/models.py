@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy_utils.types import phone_number
 from werkzeug import generate_password_hash, check_password_hash
-from flask.ext.login import UserMixin
+from flask_login import UserMixin
 
 from ..extensions import db
 from sqlalchemy import func

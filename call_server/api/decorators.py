@@ -1,7 +1,7 @@
 from functools import wraps
 
 from flask import current_app, abort, request
-from flask.ext.login import current_user
+from flask_login import current_user
 
 
 def restless_api_auth(*args, **kwargs):

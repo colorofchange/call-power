@@ -1,5 +1,6 @@
-campaign_type: This campaign targets which type of decision-makers?
+campaign_type: This campaign targets which type of decision-makers?msg_schedule_stop
 segment_by: Segment callers to targets by which attribute?
+include_custom: Include custom targets in addition to location-segmented ones?
 locate_by: Determine location by which attribute?
 target_set: Search for target phone numbers, or add them directly.
 target_ordering: |
@@ -12,15 +13,22 @@ msg_intro_location: Introduce yourself and the campaign briefly, and also the ne
 msg_location: Ask the caller to enter their location by zipcode.
 msg_invalid_location: If their location is not within the campaign area, let them know about alternatives.
 msg_unparsed_location: If we could not understand their location entry, ask them to try again.
+msg_prompt_schedule: Prompt the user to schedule a call. Press 1 to start, 9 to stop. Three second timeout will continue.
+msg_alter_schedule: If the user is already a scheduled caller, thank them and let them opt out by pressing 9.
+msg_schedule_start: Thank the user for becoming a scheduled caller, and remind them we will call them back at the same time tomorrow.
+msg_schedule_stop: Thank the user for being a scheduled caller, and let them know we won't call again.
 msg_call_block_intro: Before beginning a block of calls, let the caller know what to expect.
 msg_target_intro: When we are about to connect them, remind the caller who they are going to speak with.
 msg_target_busy: If the target is busy, let the caller know when to call again.
 msg_between_calls: Between calls, encourage the caller to keep going and remind them of any specific instructions.
 msg_final_thanks: When all calls are complete, thank the caller for taking action.
+msg_campaign_complete: When a campaign is archived, tell the caller it has concluded, and thank them for taking action.
 
 embed_script: Enter the suggested call script here as HTML.
 embed_script_display: How should the script display on the action page? Replace the form, in a modal overlay, or something custom.
+embed_phone_display: Selector on action page to show the phone number we are calling from.
 embed_type: How will this form embed into your action page?
 embed_code: Copy and paste this javascript into your action page.
 embed_custom_js: Javascript that will run after the success callback. Eval'ed directly, so be careful.
+embed_custom_onload: Javascript that will run after the callPowerForm is attached. Eval'ed directly, so be careful.
 embed_redirect: After making call, redirect the page to this URL using Javascript.
