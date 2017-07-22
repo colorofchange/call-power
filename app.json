@@ -1,0 +1,83 @@
+{
+  "name": "call-power",
+  "scripts": {
+  },
+  "env": {
+    "CALLPOWER_CONFIG": {
+      "required": true
+    },
+    "GEOCODE_API_KEY": {
+      "required": true
+    },
+    "GEOCODE_PROVIDER": {
+      "required": true
+    },
+    "HEROKU": {
+      "required": true
+    },
+    "HEROKU_POSTGRESQL_BLACK_URL": {
+      "required": true
+    },
+    "INSTALLED_ORG": {
+      "required": true
+    },
+    "OPENSTATES_API_KEY": {
+      "required": true
+    },
+    "PAPERTRAIL_API_TOKEN": {
+      "required": true
+    },
+    "REDIS_URL": {
+      "required": true
+    },
+    "S3_ACCESS_KEY": {
+      "required": true
+    },
+    "S3_SECRET_KEY": {
+      "required": true
+    },
+    "SECRET_KEY": {
+      "required": true
+    },
+    "SENDGRID_PASSWORD": {
+      "required": true
+    },
+    "SENDGRID_USERNAME": {
+      "required": true
+    },
+    "SENTRY_DSN": {
+      "required": true
+    },
+    "STORE_S3_BUCKET": {
+      "required": true
+    },
+    "STORE_S3_REGION": {
+      "required": true
+    },
+    "SUNLIGHT_API_KEY": {
+      "required": true
+    },
+    "TWILIO_ACCOUNT_SID": {
+      "required": true
+    },
+    "TWILIO_AUTH_TOKEN": {
+      "required": true
+    },
+    "TWILIO_PLAYBACK_APP": {
+      "required": true
+    }
+  },
+  "formation": {
+  },
+  "addons": [
+    "papertrail",
+    "heroku-postgresql",
+    "heroku-redis",
+    "sendgrid"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
