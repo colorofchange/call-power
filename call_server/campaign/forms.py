@@ -1,3 +1,4 @@
+import re
 from flask_wtf import FlaskForm
 from flask_babel import gettext as _
 from wtforms import (HiddenField, SubmitField, TextField,
@@ -16,7 +17,7 @@ from .models import Campaign, TwilioPhoneNumber
 
 from ..political_data import COUNTRY_CHOICES
 from ..utils import choice_items, choice_keys, choice_values, choice_values_flat
-
+from ..phone_numbers import AREA_CODE_MAP
 
 class DisabledSelectField(SelectField):
   def __call__(self, *args, **kwargs):
@@ -65,7 +66,7 @@ class CampaignForm(FlaskForm):
 
     phone_number_set = QuerySelectMultipleField(_('Select Phone Numbers'),
                                                 query_factory=TwilioPhoneNumber.available_numbers,
-                                                validators=[Required()])
+                                                validators=[Required()], get_label=getPhoneNumberLabel)
     allow_call_in = BooleanField(_('Allow Call In'))
     prompt_schedule = BooleanField(_('Prompt to Schedule Recurring Calls'))
 
@@ -96,6 +97,10 @@ class CampaignForm(FlaskForm):
                 return False
 
         return True
+
+    def getPhoneNumberLabel(twilio_phone_number):
+        m = re.search(r'[0-9]{3}', twilio_phone_number.number)
+        return AREA_CODE_MAP[m.group(0)] + ' ' + twilio_phone_number.number
 
 
 class CampaignAudioForm(FlaskForm):
