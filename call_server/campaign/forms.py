@@ -20,7 +20,7 @@ from ..utils import choice_items, choice_keys, choice_values, choice_values_flat
 from ..phone_numbers import AREA_CODE_MAP
 
 def getPhoneNumberLabel(twilio_phone_number):
-    m = re.search(r'[0-9]{3}', twilio_phone_number.number)
+    m = re.search(r'[0-9]{3}', str(twilio_phone_number.number))
     return AREA_CODE_MAP[m.group(0)] + ' ' + twilio_phone_number.number
 
 class DisabledSelectField(SelectField):
