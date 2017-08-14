@@ -11,8 +11,9 @@ from decorators import api_key_or_auth_required, restless_api_auth
 from ..call.decorators import crossdomain
 
 from constants import API_TIMESPANS
+from flask_talisman import ALLOW_FROM
 
-from ..extensions import csrf, rest, db, cache
+from ..extensions import csrf, rest, db, cache, talisman, CALLPOWER_CSP
 from ..campaign.models import Campaign, Target, AudioRecording
 from ..political_data.adapters import adapt_by_key, UnitedStatesData
 from ..call.models import Call, Session
@@ -21,7 +22,6 @@ from ..call.constants import TWILIO_CALL_STATUS
 
 api = Blueprint('api', __name__, url_prefix='/api')
 csrf.exempt(api)
-
 
 restless_preprocessors = {'GET_SINGLE':   [restless_api_auth],
                           'GET_MANY':     [restless_api_auth],
@@ -189,7 +189,7 @@ def campaign_stats(campaign_id):
     )
     # calls_session_list = [int(n[0]) for n in calls_session_grouped.all()]
     calls_per_session = {
-        'avg': '%.2f' % calls_per_session_avg.scalar() or 0,
+        'avg': '%.2f' % (calls_per_session_avg.scalar() or 0),
         'med': calls_per_session_med.scalar() or '?'
     }
 
@@ -200,15 +200,15 @@ def campaign_stats(campaign_id):
         'queue_avg_seconds': queue_avg_seconds,
         'sessions_completed': sessions_completed,
         'calls_per_session': calls_per_session,
+        'calls_completed': calls_completed.count()
     }
 
-    if calls_completed:
+    if data['calls_completed']:
         first_call_completed = calls_completed.first()
         last_call_completed = calls_completed.order_by(Call.timestamp.desc()).first()
         data.update({
             'date_start': datetime.strftime(first_call_completed[0], '%Y-%m-%d'),
             'date_end': datetime.strftime(last_call_completed[0] + timedelta(days=1), '%Y-%m-%d'),
-            'calls_completed': calls_completed.count()
         })
 
     return jsonify(data)
@@ -438,19 +438,22 @@ def call_info(sid):
 @cache.cached(timeout=600)
 def campaign_embed_js(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
-    return render_template('api/embed.js', campaign=campaign, mimetype='text/javascript')
+    return Response(render_template('api/embed.js', campaign=campaign), content_type='application/javascript')
 
 
 @api.route('/campaign/<int:campaign_id>/CallPowerForm.js', methods=['GET'])
 @crossdomain(origin='*')
+@talisman(content_security_policy=CALLPOWER_CSP.copy().update({'script-src':['\'self\'', '\'unsafe-eval\'']}))
+# add unsafe-eval, to execute campaign.embed.custom_js
 @cache.cached(timeout=600)
 def campaign_form_js(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
-    return render_template('api/CallPowerForm.js', campaign=campaign, mimetype='text/javascript')
+    return Response(render_template('api/CallPowerForm.js', campaign=campaign), content_type='application/javascript')
 
 
 @api.route('/campaign/<int:campaign_id>/embed_iframe.html', methods=['GET'])
 @cache.cached(timeout=600)
+@talisman(frame_options=None) # allow iframe'ing on this route only
 def campaign_embed_iframe(campaign_id):
     campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
     return render_template('api/embed_iframe.html', campaign=campaign)

@@ -29,7 +29,7 @@ class TestUSStateData(BaseTestCase):
             locate_by='latlon')
 
         self.mock_location = Location('Oakland, CA', (37.804417,-122.267747),
-            {'components':{'state':'CA','zipcode':'94612'}})
+            {'state':'CA','zipcode':'94612'})
 
     def test_cache(self):
         self.assertIsNotNone(self.mock_cache)
@@ -123,12 +123,21 @@ class TestUSStateData(BaseTestCase):
             if not gov:
                 self.assertIn(abbr, NO_GOV)
                 continue
-            self.assertEqual(len(gov.keys()), 5)
-            self.assertEqual(gov['title'], 'Governor')
+            self.assertEqual(len(gov[0].keys()), 5)
+            self.assertEqual(gov[0]['title'], 'Governor')
 
     def test_ca_governor(self):
-        gov = self.us_data.get_state_governor('CA')
+        gov = self.us_data.get_state_governor('CA')[0]
         self.assertEqual(gov['first_name'], 'Jerry')
         self.assertEqual(gov['last_name'], 'Brown')
         self.assertEqual(gov['state'], 'CA')
         self.assertEqual(gov['phone'], '916-445-2841')
+
+    def test_locate_targets_gov(self):
+        self.STATE_CAMPAIGN.campaign_subtype = 'exec'
+        gov = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
+        self.assertEqual(len(gov), 1)
+
+        self.assertEqual(gov[0]['state'], 'CA')
+        self.assertEqual(gov[0]['title'], 'Governor')
+

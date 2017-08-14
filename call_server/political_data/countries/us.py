@@ -136,8 +136,6 @@ class USCampaignType_State(USCampaignType):
             return display
 
     def all_targets(self, location, campaign_region=None):
-        # FIXME: For exec, use campaign state by default. Not user-provided location.
-        #        I don't know why this doesn't apply everywhere.
         return {
             'exec': self._get_state_governor(location, campaign_region),
             'upper': self._get_state_upper(location, campaign_region),
@@ -158,11 +156,13 @@ class USCampaignType_State(USCampaignType):
             result.extend(targets.get('upper'))
         elif subtype == 'lower':
             result.extend(targets.get('lower'))
+        elif subtype == 'exec':
+            result.extend(targets.get('exec'))
 
         return result
 
     def _get_state_governor(self, location, campaign_region=None):
-        return self.data_provider.get_state_governor(location)
+        return self.data_provider.get_state_governor(location.state)
 
     def _get_state_upper(self, location, campaign_region=None):
         legislators = self.data_provider.get_state_legislators(location)
@@ -201,7 +201,7 @@ class USDataProvider(DataProvider):
     KEY_GOVERNOR = 'us_state:governor:{state}'
     KEY_ZIPCODE = 'us:zipcode:{zipcode}'
 
-    SORTED_SETS = ['us:house', 'us:senate']
+    SORTED_SETS = ['us:house', 'us:senate', 'us_state:governor']
 
     def __init__(self, cache, api_cache=None, **kwargs):
         super(USDataProvider, self).__init__(**kwargs)
@@ -317,9 +317,9 @@ class USDataProvider(DataProvider):
         Load US state governor data from saved file
         Returns a dictionary keyed by state to cache for fast lookup
 
-        eg us_state:governor:CA = {'title':'Governor', 'name':'Jerry Brown Jr.', 'phone': '18008076755'}
+        eg us_state:governor:CA = [{'title':'Governor', 'name':'Jerry Brown Jr.', 'phone': '18008076755'}]
         """
-        governors = collections.defaultdict(dict)
+        governors = collections.defaultdict(list)
 
         with open('call_server/political_data/data/us_governors.csv') as f:
             reader = csv.DictReader(f)
@@ -333,7 +333,7 @@ class USDataProvider(DataProvider):
                     'phone': l.get('phone'),
                     'state': l.get('state')
                 }
-                governors[direct_key] = d
+                governors[direct_key] = [d, ]
         return governors
 
     def load_data(self):
@@ -348,7 +348,8 @@ class USDataProvider(DataProvider):
         # if cache is redis, add lexigraphical index on states, names
         if hasattr(self._cache, 'cache') and isinstance(self._cache.cache, werkzeug.contrib.cache.RedisCache):
             redis = self._cache.cache._client
-            for (key,record) in legislators.items():
+            searchable_items = legislators.items() + governors.items()
+            for (key,record) in searchable_items:
                 for sorted_key in self.SORTED_SETS:
                     if key.startswith(sorted_key):
                         redis.zadd(sorted_key, key, 0)

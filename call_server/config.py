@@ -7,8 +7,8 @@ class DefaultConfig(object):
     PROJECT = 'CallPower'
     DEBUG = False
     TESTING = False
-    ENVIRONMENT = "Default"
-    VERSION = "1.3.6"
+    VERSION = "1.3.7"
+    ENVIRONMENT = os.environ.get('APP_ENVIRONMENT', "Default")
 
     APP_NAME = "call_server"
     APPLICATION_ROOT = None  # the path where the application is configured
@@ -82,6 +82,9 @@ class ProductionConfig(DefaultConfig):
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', True)
 
+    SESSION_COOKIE_SECURE = True
+    SENTRY_DSN = os.environ.get('SENTRY_DSN', None)
+
     SQLALCHEMY_POOL_SIZE = int(os.environ.get('SQLALCHEMY_POOL_SIZE', 5))
     SQLALCHEMY_POOL_RECYCLE = os.environ.get('SQLALCHEMY_POOL_RECYCLE', 60 * 60)  # default 1 hour
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI')
@@ -108,7 +111,7 @@ class ProductionConfig(DefaultConfig):
 class HerokuConfig(ProductionConfig):
     # Heroku addons use a few different environment variable names
 
-    ENVIRONMENT = "Heroku"
+    ENVIRONMENT = "Production"
 
     # db via heroku postgres
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
@@ -127,7 +130,7 @@ class HerokuConfig(ProductionConfig):
 
 
 class DevelopmentConfig(DefaultConfig):
-    DEBUG = True
+    DEBUG = os.environ.get('APP_DEBUG', True)
     DEBUG_MORE = True
     TESTING = False
 
@@ -135,7 +138,7 @@ class DevelopmentConfig(DefaultConfig):
     CACHE_REDIS_URL = 'redis://localhost:6379'
     CACHE_KEY_PREFIX = 'call-power:'
 
-    ENVIRONMENT = "Development"
+    ENVIRONMENT = os.environ.get('APP_ENVIRONMENT', "Development")
 
     ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', 'ThisIsATestAdminAPIKey!')
 

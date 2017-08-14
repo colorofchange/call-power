@@ -285,7 +285,7 @@ def incoming():
     if campaign.status == 'archived':
         resp = VoiceResponse()
         play_or_say(resp, campaign.audio('msg_campaign_complete'))
-        return resp        
+        return str(resp)
 
     # pull user phone from Twilio incoming request
     params['userPhone'] = request.values.get('From')
@@ -350,6 +350,10 @@ def create():
 
     if Blocklist.user_blocked(params['userPhone'], params['userIPAddress'], user_country=params['userCountry']):
         abort(429, {'kthx': 'bai'}) # submission tripped blocklist
+
+    if campaign.status == 'archived':
+        result = jsonify(campaign=campaign.status)
+        return result
 
     # start call session for user
     try:

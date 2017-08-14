@@ -143,9 +143,9 @@ class Geocoder(object):
     """
 
     def __init__(self, API_NAME=None, API_KEY=None, country='US'):
-        if not API_NAME or API_KEY:
+        if not (API_NAME or API_KEY):
             # get keys from os.environ, because we may not have current_app context
-            API_NAME = os.environ.get('GEOCODE_PROVIDER', 'nominatim')  # default to the FOSS provider
+            API_NAME = os.environ.get('GEOCODE_PROVIDER', 'nominatim').lower()  # default to the FOSS provider
             API_KEY = os.environ.get('GEOCODE_API_KEY', None)
 
         service = geopy.geocoders.get_geocoder_for_service(API_NAME)
@@ -154,14 +154,14 @@ class Geocoder(object):
         if API_NAME == 'nominatim':
                 # nominatim sets country bias at init
                 # and has no API_KEY
-                self.client = service(country_bias=country, timeout=3)
+                self.client = service(country_bias=country, timeout=5)
         elif API_NAME == 'liveaddress':
             AUTH_TOKEN = os.environ.get('GEOCODE_API_TOKEN', None)
             self.client = service(API_KEY, AUTH_TOKEN, timeout=3)
             # SmartyStreets has a separate US Zipcode endpoint
             self.client_uszipcode = SmartystreetsUSZipcode(API_KEY, AUTH_TOKEN)
         elif API_KEY:
-            self.client = service(API_KEY, timeout=3)
+            self.client = service(api_key=API_KEY, timeout=3)
         else:
             raise LocationError('configure your geocoder with environment variables GEOCODE_PROVIDER and GEOCODE_API_KEY')
             
@@ -192,6 +192,8 @@ class Geocoder(object):
             elif service == NOMINATIM_SERVICE:
                 # nominatim won't return metadata unless we ask
                 response = self.client.geocode(address, addressdetails=True)
+                if not response:
+                    return Location()
                 intermediate = Location(response)
                 if postal_only or (not intermediate.postal):
                     # nominatim doesn't give full location for lots of queries

@@ -460,7 +460,7 @@ def status(campaign_id):
         elif campaign.status == 'archived':
             # release twilio numbers
             campaign.phone_number_set = []
-            flash('Campaign archived. Incoming calls will not connect.', 'alert')
+            flash('Campaign archived. Incoming calls will not connect.', 'danger')
         else:
             flash('Campaign status updated.', 'success')
 
