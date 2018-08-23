@@ -219,7 +219,10 @@
             office.last_name = person.last_name;
             office.uid = person.uid+(office.id || '');
             office.phone = office.phone || office.tel;
-            office.office_name = office.name || office.city || office.type;
+            var office_name = office.office_name || office.name || office.city || office.type;
+
+            // remove "office" from office_name, we append that in the template
+            office.office_name = office_name.replace(/office/i,'');
             var li = renderTemplate("#search-results-item-tmpl", office);
             dropdownMenu.append(li);
           }

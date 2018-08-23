@@ -1,6 +1,5 @@
 -r common.txt
 boto==2.38.0
-Flask-SSLify==0.1.5
 gevent==1.1.1
 gevent-psycopg2==0.0.3
 greenlet==0.4.10

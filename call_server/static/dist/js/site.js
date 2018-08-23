@@ -199,8 +199,6 @@ $(document).ready(function () {
 
       this.twilio.incoming(function(connection) {
         connection.accept();
-        // do awesome ui stuff here
-        // $('#call-status').text("you're on a call!");
       });
       this.twilio.error(function(error) {
         console.error(error);
@@ -956,14 +954,18 @@ $(document).ready(function () {
           record: record
         },
         success: function(data) {
-          alert('Calling you at '+$('#test_call_number').val()+' now!');
           if (data.call == 'queued') {
+            alert('Calling you at '+$('#test_call_number').val()+' now!');
             statusIcon.removeClass('active').addClass('success');
             $('.form-group.test_call .controls .help-block').removeClass('has-error').text('');
           } else {
             console.error(data);
-            statusIcon.addClass('error');
-            $('.form-group.test_call .controls .help-block').addClass('has-error').text(data.responseText);
+            statusIcon.removeClass('active').addClass('error');
+            var message = "Unable to place call";
+            if (data.campaign == 'archived') {
+              message += ': campaign is archived.'
+            }
+            $('.form-group.test_call .controls .help-block').addClass('has-error').text(message);
           }
         },
         error: function(err) {
@@ -1739,7 +1741,10 @@ $(document).ready(function () {
             office.last_name = person.last_name;
             office.uid = person.uid+(office.id || '');
             office.phone = office.phone || office.tel;
-            office.office_name = office.name || office.city || office.type;
+            var office_name = office.office_name || office.name || office.city || office.type;
+
+            // remove "office" from office_name, we append that in the template
+            office.office_name = office_name.replace(/office/i,'');
             var li = renderTemplate("#search-results-item-tmpl", office);
             dropdownMenu.append(li);
           }

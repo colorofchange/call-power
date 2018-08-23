@@ -108,20 +108,30 @@ class UnitedStatesData(DataAdapter):
 class OpenStatesData(DataAdapter):
     def target(self, data):
         adapted = {
-            'title': 'Senator' if data['chamber'] == "upper" else "Representative",
             'uid': data.get('leg_id', '')
         }
+        if 'title' in data:
+            adapted['title'] = data.get('title')
+        elif 'chamber' in data:
+            if data['chamber'] == "upper":
+                adapted['title'] = 'Senator'
+            else:
+                adapted['title'] = 'Representative'
+
         if 'first_name' in data and 'last_name' in data:
             adapted['name'] = u'{first_name} {last_name}'.format(**data)
         elif data.get('full_name'):
             adapted['name'] = data['full_name']
+        elif data.get('name'):
+            adapted['name'] = data['name']
         else:
             adapted['name'] = 'Unknown'
 
         # default to capitol office
-        for office in data['offices']:
-            if office.get('type') == 'capitol':
-                adapted['number'] = office.get('phone', '')
+        if 'offices' in data:
+            for office in data['offices']:
+                if office.get('type') == 'capitol':
+                    adapted['number'] = office.get('phone', '')
         # if none, try first
         if not 'number' in adapted:
             adapted['number'] = data.get('offices',[{}])[0].get('phone', '')
