@@ -193,6 +193,7 @@
         if (person.bioguide_id) {
           uid_prefix = 'us:bioguide:';
           person.uid = uid_prefix+person.bioguide_id;
+          person.location = 'DC';
         } else if (person.leg_id) {
           uid_prefix = 'us_state:openstates:';
           person.uid = uid_prefix+person.leg_id;
@@ -217,12 +218,17 @@
             office.title = person.title;
             office.first_name = person.first_name;
             office.last_name = person.last_name;
-            office.uid = person.uid+(office.id || '');
+            if (person.bioguide_id) {
+              // us_congress office.id have bioguide prefix
+              office.uid =uid_prefix + office.id;
+            } else {
+              office.uid = person.uid+(office.id || '');
+            }
             office.phone = office.phone || office.tel;
-            var office_name = office.office_name || office.name || office.city || office.type;
+            var office_location = office.office_name || office.name || office.city || office.type;
 
-            // remove "office" from office_name, we append that in the template
-            office.office_name = office_name.replace(/office/i,'');
+            // remove "office" from office_location
+            office.location = office_location.replace(/office/i,'');
             var li = renderTemplate("#search-results-item-tmpl", office);
             dropdownMenu.append(li);
           }

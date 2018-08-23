@@ -9,6 +9,7 @@
       "campaign/:id/audio": "audioForm",
       "campaign/:id/launch": "launchForm",
       "campaign/:id/calls": "callLog",
+      "campaign/:id/schedule": "scheduleLog",
       "system": "systemForm",
       "statistics": "statisticsView",
     },
@@ -27,6 +28,10 @@
 
     callLog: function(id) {
       CallPower.callLog = new CallPower.Views.CallLog(id);
+    },
+
+    scheduleLog: function(id) {
+      CallPower.scheduleLog = new CallPower.Views.ScheduleLog(id);
     },
 
     systemForm: function() {

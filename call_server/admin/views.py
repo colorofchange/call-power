@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, current_app, flash, url_for, redirect
-from flask_login import login_required
+from flask import Blueprint, render_template, current_app, flash, url_for, redirect, request
+from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
 from ..extensions import db, cache
@@ -12,12 +12,13 @@ from .forms import BlocklistForm
 
 from ..campaign.models import TwilioPhoneNumber, Campaign
 from ..call.models import Call
+from ..sync.models import SyncCampaign
 from ..campaign.constants import STATUS_PAUSED
 from ..api.constants import API_TIMESPANS
 from ..utils import get_one_or_create
+from ..user.models import User
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
-
 
 # all admin routes require login
 @admin.before_request
@@ -37,7 +38,7 @@ def dashboard():
             .filter(Call.status == 'completed')
             .join(Call).group_by(Campaign.id))
 
-    today = datetime.today()
+    today = datetime.today().replace(hour=0, minute=0, second=0)
     this_month_start = today.replace(day=1)  # first day of the current month
     last_month = this_month_start - timedelta(days=28) # a day in last month
     next_month = today.replace(day=28) + timedelta(days=4)  # a day in next month (for months with 28,29,30,31)
@@ -78,7 +79,7 @@ def dashboard():
 @admin.route('/statistics')
 def statistics():
     campaigns = Campaign.query.order_by(desc(Campaign.status_code), desc(Campaign.id)).all()
-    today = datetime.today()
+    today = datetime.today().replace(hour=0, minute=0, second=0)
     this_month_start = today.replace(day=1)  # first day of the current month
 
     last_month = this_month_start - timedelta(days=28) # a day in last month
@@ -97,6 +98,8 @@ def system():
     twilio_numbers = TwilioPhoneNumber.query.all()
     admin_api_key = current_app.config.get('ADMIN_API_KEY')
     twilio_account = current_app.config.get('TWILIO_CLIENT').auth[0]
+    crm_sync_campaigns = SyncCampaign.query.all()
+
     political_data_cache = {'US': cache.get('political_data:us'),
                             'CA': cache.get('political_data:ca')}
     blocked = Blocklist.query.order_by(Blocklist.timestamp.desc()).all()
@@ -107,6 +110,7 @@ def system():
                            twilio_numbers=twilio_numbers,
                            twilio_account=twilio_account,
                            admin_api_key=admin_api_key,
+                           crm_sync_campaigns=crm_sync_campaigns,
                            political_data_cache=political_data_cache,
                            blocked=blocked)
 
@@ -136,6 +140,16 @@ def blocklist(blocklist_id=None):
 
     return render_template('admin/blocklist.html', blocklist=blocklist, form=form)
 
+
+# for flask-limit exempt-when
+# called with request context
+def admin_phone():
+    if current_user.is_authenticated():
+        return True
+
+    # if calling from embedded website, check list of admin users
+    phone = request.values.get('userPhone')
+    return phone in current_app.ADMIN_PHONES_LIST
 
 @admin.route('/twilio/resync', methods=['POST'])
 def twilio_resync():

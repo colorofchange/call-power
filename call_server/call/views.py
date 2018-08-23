@@ -10,7 +10,7 @@ from sqlalchemy.sql import desc
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
-from ..extensions import csrf, db
+from ..extensions import csrf, cors, db, limiter
 
 from .models import Call, Session
 from .constants import TWILIO_TTS_LANGUAGES
@@ -18,18 +18,26 @@ from ..campaign.constants import (LOCATION_POSTAL, LOCATION_DISTRICT,
     SEGMENT_BY_LOCATION, SEGMENT_BY_CUSTOM,
     TARGET_OFFICE_DISTRICT, TARGET_OFFICE_BUSY)
 from ..campaign.models import Campaign, Target
-from ..political_data.lookup import locate_targets
+from ..political_data.lookup import locate_targets, validate_location
 from ..political_data.geocode import LocationError
 from ..schedule.models import ScheduleCall
 from ..schedule.views import schedule_created, schedule_deleted
 from ..admin.models import Blocklist
+from ..admin.views import admin_phone
 
-from .decorators import crossdomain, abortJSON, stripANSI
+from .decorators import abortJSON, stripANSI
 
 call = Blueprint('call', __name__, url_prefix='/call')
+cors(call)
 call_methods = ['GET', 'POST']
 csrf.exempt(call)
 call.errorhandler(400)(abortJSON)
+call.errorhandler(429)(abortJSON)
+
+
+def rate_limit_from_config():
+    return current_app.config.get("CALL_RATE_LIMIT")
+
 
 def play_or_say(r, audio, voice='alice', lang='en-US', **kwargs):
     """
@@ -74,6 +82,7 @@ def parse_params(r, inbound=False):
     params = {
         'campaignId': r.values.get('campaignId', None),
         'scheduled': r.values.get('scheduled', None),
+        'scheduleSkip': r.values.get('scheduleSkip', None),
         'sessionId': r.values.get('sessionId', None),
         'targetIds': r.values.getlist('targetIds'),
         'userPhone': r.values.get('userPhone', None),
@@ -205,6 +214,7 @@ def make_calls(params, campaign):
         elif campaign.segment_by == SEGMENT_BY_LOCATION:
             # lookup targets for campaign type by segment, put in desired order
             try:
+                current_app.logger.info('locate_targets for %(userLocation)s in %(userCountry)s' % params)
                 params['targetIds'] = locate_targets(params['userLocation'], campaign=campaign)
                 # locate_targets will include from special target_set if specified in campaign.include_special
             except LocationError, e:
@@ -257,7 +267,7 @@ def schedule_prompt(params, campaign):
     resp.append(g)
 
     # in case the timeout occurs, we need a redirect verb to ensure that the call doesn't drop
-    params['scheduled'] = False
+    params['scheduleSkip'] = 1
     resp.redirect(url_for('call._make_calls', **params))
 
     return str(resp)
@@ -315,7 +325,11 @@ def incoming():
 
 
 @call.route('/create', methods=call_methods)
-@crossdomain(origin='*')
+@limiter.limit(rate_limit_from_config,
+    key_func = lambda : request.values.get('userPhone'),
+    exempt_when=admin_phone,
+    methods=['GET', 'POST']
+)
 def create():
     """
     Places a phone call to a user, given a country, phone number, and campaign.
@@ -328,6 +342,7 @@ def create():
         userLocation (zipcode)
         targetIds
         record (boolean)
+        ref (string)
     """
     # parse the info needed to make the call
     params, campaign = parse_params(request)
@@ -355,6 +370,27 @@ def create():
         result = jsonify(campaign=campaign.status)
         return result
 
+    # compute campaign targeting now, to return to calling page
+    if campaign.segment_by == SEGMENT_BY_CUSTOM:
+        targets_list = [t for t in campaign.target_set]
+        if campaign.target_ordering == 'shuffle':
+            # do randomization now
+            random.shuffle(targets_list)
+            # limit to maximum
+            if campaign.call_maximum:
+                targets_list = targets_list[:campaign.call_maximum]
+            # save to params so order persists for this caller
+            params['targetIds'] = [t.uid for t in targets_list]
+        target_response = {
+            'segment': 'custom',
+            'objects': [{'name': t.name, 'title': t.title, 'phone': t.number.e164} for t in targets_list if t.number]
+        }
+    else:
+        target_response = {
+            'segment': campaign.segment_by,
+            'display': campaign.targets_display()
+        }
+
     # start call session for user
     try:
         from_number = random.choice(phone_numbers)
@@ -371,6 +407,8 @@ def create():
             # but some installations may not want to log at all
 
         call_session = Session(**call_session_data)
+        if 'ref' in request.values:
+            call_session.referral_code = request.values.get('ref')[:64]
         db.session.add(call_session)
         db.session.commit()
 
@@ -392,7 +430,8 @@ def create():
         else:
             script = ''
             redirect = ''
-        result = jsonify(campaign=campaign.status, call=call.status, script=script, redirect=redirect, fromNumber=from_number)
+        result = jsonify(campaign=campaign.status, call=call.status, script=script, redirect=redirect,
+            fromNumber=from_number, targets=target_response)
         result.status_code = 200 if call.status != 'failed' else 500
     except TwilioRestException, err:
         twilio_error = stripANSI(err.msg)
@@ -402,7 +441,6 @@ def create():
 
 
 @call.route('/connection', methods=call_methods)
-@crossdomain(origin='*')
 def connection():
     """
     Call handler to connect a user with the targets for a given campaign.
@@ -435,18 +473,16 @@ def location_parse():
     if not params or not campaign:
         abort(400)
 
-    location = request.values.get('Digits', '')
-
-    # Override locate_by attribute so locate_targets knows we're passing a zip
-    # This allows call-ins to be made for campaigns which otherwise use district locate_by
-    campaign.locate_by = LOCATION_POSTAL
-    # Skip special, because at this point we just want to know if the zipcode is valid
-    located_target_ids = locate_targets(location, campaign, skip_special=True)
-
+    location = request.values.get('Digits', '')[:5]
     if current_app.debug:
         current_app.logger.debug(u'entered = {}'.format(location))
 
-    if not located_target_ids:
+    # validate zipcode by checking against local data cache
+    valid_location = validate_location(location, campaign)
+    if current_app.debug:
+        current_app.logger.debug(u'validated = {}'.format(valid_location))
+
+    if not valid_location:
         resp = VoiceResponse()
         play_or_say(resp, campaign.audio('msg_invalid_location'),
             lang=campaign.language_code)
@@ -486,7 +522,6 @@ def schedule_parse():
         # schedule a call at this time every day
         play_or_say(resp, campaign.audio('msg_schedule_start'),
             lang=campaign.language_code)
-        scheduled = True
         schedule_created.send(ScheduleCall,
             campaign_id=campaign.id,
             phone=params['userPhone'],
@@ -495,15 +530,15 @@ def schedule_parse():
         # user wishes to opt out
         play_or_say(resp, campaign.audio('msg_schedule_stop'),
             lang=campaign.language_code)
-        scheduled = False
         schedule_deleted.send(ScheduleCall,
             campaign_id=campaign.id,
             phone=params['userPhone'])
     else:
         # because of the timeout, we may not have a digit
-        scheduled = False
+        pass
 
-    params['scheduled'] = scheduled
+    # skip the schedule prompt as we start to make calls
+    params['scheduleSkip'] = 1
     resp.redirect(url_for('call._make_calls', **params))
     return str(resp)
 
@@ -518,7 +553,7 @@ def _make_calls():
     if not params or not campaign:
         abort(400)
 
-    if campaign.prompt_schedule and not params.get('scheduled'):
+    if campaign.prompt_schedule and not params.get('scheduleSkip'):
         return schedule_prompt(params, campaign)
     else:
         return make_calls(params, campaign)
@@ -535,8 +570,8 @@ def make_single():
     params['call_index'] = i
 
     (uid, prefix) = parse_target(params['targetIds'][i])
-    (current_target, cached) = Target.get_or_cache_key(uid, prefix)
-    if cached:
+    (current_target, created) = Target.get_or_create(uid, prefix)
+    if created:
         # save Target to database
         db.session.add(current_target)
         db.session.commit()
@@ -546,6 +581,10 @@ def make_single():
     if not current_target.number:
         play_or_say(resp, campaign.audio('msg_invalid_location'),
             lang=campaign.language_code)
+        current_app.logger.error("No number found for target %s" % current_target)
+        # weird, but move on to the next call
+        params['call_index'] = i + 1
+        resp.redirect(url_for('call.make_single', **params))
         return str(resp)
 
     if current_target.offices:
@@ -567,11 +606,20 @@ def make_single():
     else:
         office = None
         target_phone = current_target.number
+
+    if office:
+        office_location = office.name
+        # use voice-readable short name instead of full address
+        office_type = office.type
+    else:
+        office_location = current_target.location or 'capitol'
+        office_type = 'main'
         
     play_or_say(resp, campaign.audio('msg_target_intro'),
         title=current_target.title,
         name=current_target.name,
-        office_type = office.name if office else '',
+        location=office_location,
+        office_type=office_type,
         lang=campaign.language_code)
 
     if current_app.debug:
@@ -607,7 +655,7 @@ def complete():
         abort(400)
 
     (uid, prefix) = parse_target(params['targetIds'][i])
-    (current_target, cached) = Target.get_or_cache_key(uid, prefix)
+    (current_target, created) = Target.get_or_create(uid, prefix)
     call_data = {
         'session_id': params['sessionId'],
         'campaign_id': campaign.id,

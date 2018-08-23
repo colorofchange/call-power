@@ -7,7 +7,7 @@ class DefaultConfig(object):
     PROJECT = 'CallPower'
     DEBUG = False
     TESTING = False
-    VERSION = "1.3.7"
+    VERSION = "1.4.4"
     ENVIRONMENT = os.environ.get('APP_ENVIRONMENT', "Default")
 
     APP_NAME = "call_server"
@@ -44,6 +44,12 @@ class DefaultConfig(object):
     # limit on the amount of time to ring before giving up
     TWILIO_TIMEOUT = os.environ.get('TWILIO_TIMEOUT', 60)  # seconds
 
+    # maximum number of outbound calls to the same phone number, from the same campaign
+    # admin phones numbers are exempt, for testing
+    CALL_RATE_LIMIT = os.environ.get('CALL_RATE_LIMIT', '2/hour')
+    # limit string must match notation like "[count] [per|/] [n (optional)] [second|minute|hour|day|month|year]""
+    # from https://flask-limiter.readthedocs.io/en/stable/#rate-limit-string-notation
+
     SECRET_KEY = os.environ.get('SECRET_KEY')
 
     GEOCODE_API_KEY = os.environ.get('GEOCODE_API_KEY')
@@ -56,6 +62,12 @@ class DefaultConfig(object):
 
     MAIL_SERVER = 'localhost'
 
+    CRM_INTEGRATION = os.environ.get('CRM_INTEGRATION')
+    if CRM_INTEGRATION == 'ActionKit':
+        ACTIONKIT_DOMAIN = os.environ.get('ACTIONKIT_DOMAIN')
+        ACTIONKIT_USER = os.environ.get('ACTIONKIT_USER')
+        ACTIONKIT_API_KEY = os.environ.get('ACTIONKIT_API_KEY')
+        ACTIONKIT_PASSWORD = os.environ.get('ACTIONKIT_PASSWORD')
 
 class ProductionConfig(DefaultConfig):
     DEBUG = False
@@ -69,8 +81,9 @@ class ProductionConfig(DefaultConfig):
 
     CACHE_TYPE = 'redis'
     CACHE_REDIS_URL = os.environ.get('REDIS_URL')
-    CACHE_KEY_PREFIX = 'call-power'
+    CACHE_KEY_PREFIX = 'call-power:'
     RQ_REDIS_URL = os.environ.get('REDIS_URL')
+    RATELIMIT_STORAGE_URL = os.environ.get('REDIS_URL')
 
     LOG_PHONE_NUMBERS = os.environ.get('LOG_PHONE_NUMBERS', False)
     OUTPUT_LOG = os.environ.get('OUTPUT_LOG', False)
@@ -151,13 +164,15 @@ class DevelopmentConfig(DefaultConfig):
     # four slashes for an absolute path
     # per http://docs.sqlalchemy.org/en/latest/core/engines.html#sqlite
 
-    SERVER_NAME = 'localhost:5000'
+    SERVER_NAME = os.environ.get('SERVER_NAME', 'localhost:5000')
     STORE_PATH = '%s/instance/uploads/' % os.path.abspath(os.curdir)
     STORE_DOMAIN = 'http://localhost:5000'
 
     MAIL_DEBUG = True
     MAIL_PORT = 1025
     MAIL_DEFAULT_SENDER = 'debug'
+
+    TEMPLATES_AUTO_RELOAD = True
 
 
 class TestingConfig(DefaultConfig):

@@ -20,7 +20,9 @@ class TestUSStateData(BaseTestCase):
         cls.us_data = USDataProvider(cls.mock_cache, 'localmem')
         cls.us_data.load_data()
 
-    def setUp(self):
+    def setUp(self, **kwargs):
+        super(TestUSStateData, self).setUp(**kwargs)
+
         self.STATE_CAMPAIGN = Campaign(
             country_code='us',
             campaign_type='state',
@@ -111,33 +113,37 @@ class TestUSStateData(BaseTestCase):
         self.assertEqual(len(legids), 2)
 
         first = self.us_data.get_state_legid(legids[0]['id'])
-        self.assertEqual(first['chamber'], 'lower')
+        self.assertEqual(first['chamber'], 'upper')
 
         second = self.us_data.get_state_legid(legids[1]['id'])
-        self.assertEqual(second['chamber'], 'upper')
+        self.assertEqual(second['chamber'], 'lower')
 
     def test_50_governors(self):
         NO_GOV = ['AS', 'GU', 'MP', 'PR', 'VI', 'DC', '']
-        for (abbr, state) in US_STATES:
+        for (abbr, state_name) in US_STATES:
             gov = self.us_data.get_state_governor(abbr)
             if not gov:
                 self.assertIn(abbr, NO_GOV)
                 continue
-            self.assertEqual(len(gov[0].keys()), 5)
             self.assertEqual(gov[0]['title'], 'Governor')
+            self.assertEqual(gov[0]['state'], abbr)
+            self.assertEqual(gov[0]['state_name'], state_name)
 
     def test_ca_governor(self):
         gov = self.us_data.get_state_governor('CA')[0]
         self.assertEqual(gov['first_name'], 'Jerry')
         self.assertEqual(gov['last_name'], 'Brown')
         self.assertEqual(gov['state'], 'CA')
+        self.assertEqual(gov['state_name'], 'California')
         self.assertEqual(gov['phone'], '916-445-2841')
 
     def test_locate_targets_gov(self):
         self.STATE_CAMPAIGN.campaign_subtype = 'exec'
-        gov = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
-        self.assertEqual(len(gov), 1)
-
+        uids = locate_targets(self.mock_location, self.STATE_CAMPAIGN, cache=self.mock_cache)
+        self.assertEqual(len(uids), 1)
+        
+        gov = self.us_data.get_uid(uids[0])
         self.assertEqual(gov[0]['state'], 'CA')
+        self.assertEqual(gov[0]['state_name'], 'California')
         self.assertEqual(gov[0]['title'], 'Governor')
 

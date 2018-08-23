@@ -61,6 +61,7 @@ class Session(db.Model):
     # user attributes
     phone_hash = db.Column(db.String(64), nullable=True)  # hashed phone number (optional)
     location = db.Column(db.String(STRING_LEN))  # provided location
+    referral_code = db.Column(db.String(64), nullable=True) # (optional)
 
     # twilio attributes
     from_number = db.Column(db.String(16))  # campaign call number, e164

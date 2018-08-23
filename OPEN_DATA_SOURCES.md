@@ -9,7 +9,7 @@ Data is provided under the original license of the data provider.
 
 * US Congress contact data from [UnitedStates/congress](https://github.com/unitedstates/congress), public domain
 * US Governors contact data scraped from [National Governors Association](https://github.com/spacedogXYZ/us_governors_contact), all rights reserved
-* US States legislature contact data from [OpenStates API](http://sunlightlabs.github.io/openstates-api/)
+* US States legislature contact data from [OpenStates API](http://docs.openstates.org/en/latest/api/)
 
 * Canadan Member of Parliament contact data from [Represent](http://represent.opennorth.ca), licenses available from [OpenNorth](https://github.com/opennorth/represent-canada-data)
 

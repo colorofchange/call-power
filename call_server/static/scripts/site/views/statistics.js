@@ -177,6 +177,8 @@
         $.getJSON(tableDataUrl).success(function(data) {
           var content = self.targetDataTemplate(data.objects);
           return $('table#table_data').html(content).promise();
+        }).error(function() {
+          $('table#table_data').html('<span class="glyphicon glyphicon-exclamation-sign error"></span> Error loading table');
         }).then(function() {
           return $('table#table_data').tablesorter({
             theme: "bootstrap",
@@ -186,7 +188,7 @@
                 sorter:'lastname'
               }
             },
-            sortList: [[3,1]],
+            sortList: [[3,1], [1, 0]],
             sortInitialOrder: "asc",
             widgets: [ "uitheme", "columns", "zebra", "output"],
             widgetOptions: {

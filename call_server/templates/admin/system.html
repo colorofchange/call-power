@@ -91,10 +91,36 @@
                 <input type="password" class="form-control" value="{{admin_api_key}}" readonly />
                 <span class="input-group-btn">
                     <button class="btn btn-default reveal" type="button"><i class="glyphicon glyphicon-eye-open"></i></button>
-              </span>
+                </span>
             </div>
         </div>
     </div>
+    </fieldset>
+    {% endif %}
+
+    {% if crm_sync_campaigns %}
+    <fieldset class="border">
+    <legend>CRM Sync</legend>
+    <table class='table table-bordered table-hover'>
+        <thead>
+            <tr>
+                <th>{{ _('CallPower Campaign') }}</th>
+                <th>{{ _('CRM Campaign') }}</th>
+                <th>{{ _('Last Sync') }}</th>
+            </tr>
+        {% for c in crm_sync_campaigns %}
+            <tr>
+                <td>{{c.campaign}}</td>
+                <td>{{c.crm_id}}</td>
+                <td><span class="last_sync_time">{{c.last_sync_time}}</span>
+                    <form class="crm-sync form-inline pull-right" method="POST" action="{{url_for('sync.manual_job', campaign_id=c.campaign.id)}}">
+                        <input id="csrf_token" name="csrf_token" type="hidden" value="{{csrf_token()}}">
+                        <div class="form-group"><button type="submit" class="btn btn-warning">Run</button></div>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
     </fieldset>
     {% endif %}
 

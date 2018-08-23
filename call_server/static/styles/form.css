@@ -139,6 +139,13 @@ span.info:hover + span.help-inline {
     color: gray;
 }
 
+span.display-parens:before {
+    content: '(';
+}
+span.display-parens:after {
+    content: ')';
+}
+
 /* Field status indicators */
 span.status {
     display: block;
@@ -260,3 +267,22 @@ select.block {
     font-style: italic;
 }
 
+a.edit-inline {
+    text-decoration: none !important;
+    position:relative;
+}
+a.edit-inline:hover:before {
+    position: absolute;
+    top: 1px;
+    left: -15px;
+    display: inline;
+    font-family: 'Glyphicons Halflings';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+
+    content: "\270f"; /* glyphicon-pencil */
+}
+input.has-error {
+    border: 1px solid red;
+}

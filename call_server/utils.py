@@ -4,6 +4,7 @@ from flask import current_app, flash
 import itertools
 import json
 import pytz
+import unicodedata
 import yaml
 import yaml.constructor
 
@@ -42,12 +43,12 @@ def get_one_or_create(session,
             return session.query(model).filter_by(**kwargs).one(), False
 
 
-def duplicate_object(orig):
+def duplicate_object(orig, skip=None):
     """ duplicate a sqlalchemy-backed object, skipping pk, unique fields, or sets """
     mapper = sqlalchemy.inspect(type(orig))
     arguments = dict()
     for name, column in mapper.columns.items():
-        if not (column.primary_key or column.unique or name.endswith('set')):
+        if not (column.primary_key or column.unique or name.endswith('set') or (name in skip)):
             arguments[name] = getattr(orig, name)
         if name == "created_time":
             arguments[name] = datetime.utcnow()
@@ -94,6 +95,16 @@ def utc_now():
     naive = datetime.utcnow()
     aware = naive.replace(tzinfo=pytz.utc)
     return aware
+
+
+def ignore_accents(string):
+    if type(string) == str:
+        string = unicode(string, 'utf-8')
+    elif type(string) == unicode:
+        string = string
+    else:
+        raise ValueError('not a string or unicode')
+    return unicodedata.normalize('NFD', string).encode('ascii', 'ignore')
 
 
 class OrderedDictYAMLLoader(yaml.Loader):

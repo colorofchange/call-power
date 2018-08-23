@@ -15,6 +15,7 @@ import config
 
 from .site import site
 from .admin import admin
+from .sync import sync
 from .user import User, user
 from .call import call
 from .campaign import campaign
@@ -22,11 +23,13 @@ from .schedule import schedule
 from .api import api, configure_restless, restless_preprocessors
 from .political_data import political_data
 
-from extensions import cache, db, babel, assets, login_manager, csrf, mail, store, rest, rq, talisman, CALLPOWER_CSP
+from extensions import (cache, db, babel, assets, login_manager, 
+    csrf, mail, store, rest, rq, talisman, CALLPOWER_CSP, limiter)
 
 DEFAULT_BLUEPRINTS = (
     site,
     admin,
+    sync,
     user,
     call,
     campaign,
@@ -66,6 +69,10 @@ def create_app(configuration=None, app_name=None, blueprints=None):
             sentry.client.remote.project, sentry.client.remote.public_key
         )
         talisman.content_security_policy_report_uri = sentry_report_uri
+        sentry_public_dsn = 'https://%s@sentry.io/%s' % (
+            sentry.client.remote.public_key, sentry.client.remote.project
+        )
+        app.config['SENTRY_DSN_PUBLIC'] = sentry_public_dsn
 
     # init extensions once we have app context
     init_extensions(app)
@@ -133,6 +140,18 @@ def init_extensions(app):
                   preprocessors=restless_preprocessors)
     rest.app = app
 
+    limiter.init_app(app)
+    for handler in app.logger.handlers:
+        limiter.logger.addHandler(handler)
+
+    # stable list of admin phone numbers, cached in memory to avoid db hit for each call
+    # disable in testing
+    if app.config.get('TESTING', False):
+        app.ADMIN_PHONES_LIST = []
+    else:
+        app.ADMIN_PHONES_LIST = filter(bool, 
+            [str(u.phone.national_number) if u.phone else None for u in User.query.all()]
+        )
 
     if app.config.get('DEBUG'):
         from flask_debugtoolbar import DebugToolbarExtension

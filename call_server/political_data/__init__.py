@@ -3,12 +3,26 @@ import importlib
 
 COUNTRY_CHOICES = [
     ('us', "United States"),
-    ('ca', "Canada")
+    ('ca', "Canada"),
+    ('fr', "France"),
+    ('de', "Germany"),
+    ('es', "Spain"),
+    ('ir', "Ireland"),
+    ('it', "Italy"),
+    ('pl', "Poland"),
+    ('uk', "United Kingdom"),
 ]
 
 COUNTRY_DATA = {
     'us': 'call_server.political_data.countries.us.USDataProvider',
-    'ca': 'call_server.political_data.countries.ca.CADataProvider'
+    'ca': 'call_server.political_data.countries.ca.CADataProvider',
+    'fr': 'call_server.political_data.countries.eu.FRDataProvider',
+    'de': 'call_server.political_data.countries.eu.DEDataProvider',
+    'es': 'call_server.political_data.countries.eu.ESDataProvider',
+    'ir': 'call_server.political_data.countries.eu.IRDataProvider',
+    'it': 'call_server.political_data.countries.eu.ITDataProvider',
+    'pl': 'call_server.political_data.countries.eu.PLDataProvider',
+    'uk': 'call_server.political_data.countries.eu.UKDataProvider',
 }
 
 class NoDataProviderError(Exception):
@@ -49,3 +63,4 @@ def _get_data_provider_class(country_code):
 
 # import this at the end, because it depends on get_country_data above
 from .views import political_data
+from .data_cache import check_political_data_cache
