@@ -13,8 +13,8 @@ class TestDataAdapters(BaseTestCase):
     def setUpClass(cls):
         pass
 
-    def setUp(self):
-        pass
+    def setUp(self, **kwargs):
+        super(TestDataAdapters, self).setUp(**kwargs)
 
     def test_us_adapter(self):
         f = open('tests/data/us_congress_representative.yaml', 'r')
@@ -39,6 +39,7 @@ class TestDataAdapters(BaseTestCase):
         self.assertEqual(target['title'], 'Representative')
         self.assertEqual(target['number'], data['phone'])
         self.assertEqual(target['offices'][0]['number'], data['offices'][0]['phone'])
+        self.assertEqual(target['offices'][0]['type'], 'district')
     
     def test_usstate_adapter(self):
         f = open('tests/data/openstates_representative.json', 'r')
@@ -57,6 +58,7 @@ class TestDataAdapters(BaseTestCase):
         self.assertEqual(target['title'], 'Senator')
         self.assertEqual(target['number'], data['offices'][0]['phone'])
         self.assertEqual(target['offices'][0]['number'], data['offices'][1]['phone'])
+        self.assertEqual(target['offices'][0]['type'], 'district')
 
     def test_opennorth_adapter(self):
         f = open('tests/data/opennorth_representative.json', 'r')
@@ -77,4 +79,5 @@ class TestDataAdapters(BaseTestCase):
         self.assertEqual(target['name'], data['name'])
         self.assertEqual(target['title'], data['elected_office'])
         self.assertEqual(target['number'], data['offices'][0]['tel'])
-        self.assertEqual(target['offices'][0]['number'], data['offices'][1]['tel'])  
+        self.assertEqual(target['offices'][0]['number'], data['offices'][1]['tel'])
+        self.assertEqual(target['offices'][0]['type'], 'constituency')

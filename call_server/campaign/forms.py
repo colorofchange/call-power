@@ -1,6 +1,7 @@
-import re
+import magic
 from flask_wtf import FlaskForm
 from flask_babel import gettext as _
+
 from wtforms import (HiddenField, SubmitField, TextField,
                      SelectField, SelectMultipleField,
                      BooleanField, RadioField,
@@ -9,6 +10,7 @@ from wtforms.ext.sqlalchemy.fields import QuerySelectField, QuerySelectMultipleF
 from wtforms_components import PhoneNumberField, IntegerField, read_only
 from wtforms.widgets import TextArea, Input
 from wtforms.validators import Required, Optional, AnyOf, NumberRange, ValidationError
+from wtforms_components.validators import Unique
 
 from .constants import (SEGMENT_BY_CHOICES, LOCATION_CHOICES, INCLUDE_SPECIAL_CHOCIES, TARGET_OFFICE_CHOICES, LANGUAGE_CHOICES,
                         CAMPAIGN_STATUS, EMBED_FORM_CHOICES, EMBED_SCRIPT_DISPLAY)
@@ -42,12 +44,13 @@ class TargetForm(FlaskForm):
     title = TextField(_('Title'), [Optional()])
     name = TextField(_('Name'), [Required()])
     number = PhoneNumberField(_('Phone Number'), [Required()])
+    location = TextField(_('Location'), [Optional()])
     uid = TextField(_('Unique ID'), [Optional()])
 
 
 class CampaignForm(FlaskForm):
     next = HiddenField()
-    name = TextField(_('Campaign Name'), [Required()])
+    name = TextField(_('Campaign Name'), [Required(), Unique(Campaign.name, message="Campaign with that name already exists")])
     campaign_country = DisabledSelectField(_('Country'), [Optional()], choices=COUNTRY_CHOICES)
     campaign_type = DisabledSelectField(_('Type'), [Optional()])
     campaign_state = SelectField(_('State'), [Optional()])
@@ -63,6 +66,7 @@ class CampaignForm(FlaskForm):
                            description=True, default=INCLUDE_SPECIAL_CHOCIES[0][0])
     target_set = FieldList(FormField(TargetForm, _('Choose Targets')), validators=[Optional()])
     target_ordering = RadioField(_('Target Order'), [Optional()], description=True)
+    target_shuffle_chamber = BooleanField(_('Shuffle within Chamber'), [Optional()], default=True, description=True)
     target_offices = RadioField(_('Target Offices'), [Optional()], choices=choice_items(TARGET_OFFICE_CHOICES),
                             description=True, default=TARGET_OFFICE_CHOICES[0][0])
 
@@ -71,8 +75,9 @@ class CampaignForm(FlaskForm):
 
     phone_number_set = QuerySelectMultipleField(_('Select Phone Numbers'),
                                                 query_factory=TwilioPhoneNumber.available_numbers,
-                                                validators=[Required()], get_label=getPhoneNumberLabel)
+                                                description=True, validators=[Required()])
     allow_call_in = BooleanField(_('Allow Call In'))
+    allow_intl_calls = BooleanField(_('Allow International Calls'))
     prompt_schedule = BooleanField(_('Prompt to Schedule Recurring Calls'))
 
     submit = SubmitField(_('Edit Audio'))
@@ -134,6 +139,18 @@ class AudioRecordingForm(FlaskForm):
     text_to_speech = FileField(_('Text to Speech'), [Optional()])
     description = TextField(_('Description'), [Optional()])
 
+    def validate_file_storage(form, field):
+        if not field.data:
+            return True
+
+        # Use Unix libmagic to check the file type.
+        mime = magic.from_buffer(field.data.read(1024), mime=True)
+        if mime in ["audio/wav", "audio/x-wav"] and field.data.mimetype in ["audio/wav", "audio/x-wav"]:
+            return True
+        if mime in ["audio/mp3", "audio/mpeg"] and field.data.mimetype in ["audio/mp3", "audio/mpeg"]:
+            return True
+        raise ValidationError("File type must be mp3 or wav, got {}.".format(mime))
+
 
 class CampaignLaunchForm(FlaskForm):
     next = HiddenField()
@@ -159,6 +176,10 @@ class CampaignLaunchForm(FlaskForm):
     embed_redirect = TextField(_('Redirect URL'), description=True)
     embed_custom_js = TextField(_('Custom JS Success'), description=True)
     embed_custom_onload = TextField(_('Custom JS Onload'), widget=TextArea(), description=True)
+
+    # CRM sync fields
+    crm_sync = BooleanField(_('Sync calls to CRM'), [Optional()], default=False, description=True)
+    crm_id = TextField(_('CRM Campaign'), description=True)
 
     submit = SubmitField(_('Launch'))
 

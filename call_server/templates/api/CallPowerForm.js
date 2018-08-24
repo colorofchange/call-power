@@ -136,7 +136,7 @@ CallPowerForm.prototype = function() {
 
   var onSuccess = function(response) {
     if (response.campaign === 'archived') { return onError(this.form, 'This campaign is no longer active.'); }
-    if (response.campaign !== 'live') { return onError(this.form, 'This campaign is not active.'); }
+    if (response.campaign !== 'live') { return onError(this.form, 'This campaign is not live.'); }
     if (response.call !== 'queued') { return onError(this.form, 'Could not start call.'); }
     if (response.script === undefined) { return false; }
 
@@ -146,7 +146,17 @@ CallPowerForm.prototype = function() {
 
     if (this.scriptDisplay === 'overlay') {
       // display simple overlay with script content
-      var scriptOverlay = this.$('<div class="overlay"><div class="modal">'+response.script+'</div></div>');
+      var closeButton = '<button type="button" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></button>'
+      if (this.overlayCloseText) {
+        var closeText = '<a class="closeText">'+this.overlayCloseText+'</a>';
+      }
+      var scriptOverlay = this.$('<div class="overlay">'+
+        '<div class="modal">'+
+        closeButton+
+        response.script+
+        (closeText || '')+
+        '</div>'+
+      '</div>');
       this.$('body').append(scriptOverlay);
       scriptOverlay.overlay();
       scriptOverlay.css('visibility', 'visible');
@@ -191,10 +201,9 @@ CallPowerForm.prototype = function() {
 
   var onError = function(element, message) {
     if (element !== undefined) {
-      element.addClass('has-error');  
-    } else {
-      console.error(message);  
+      element.addClass('has-error');
     }
+    console.error('CallPower error: ' + message);
     return false;
   };
 
@@ -212,6 +221,7 @@ CallPowerForm.prototype = function() {
       return this.onError(this.phoneField, 'Invalid phone number');
     }
 
+    var self = this;
     this.$.ajax(createCallURL, {
       method: 'GET',
       data: {
@@ -219,10 +229,14 @@ CallPowerForm.prototype = function() {
         userLocation: this.location(),
         userPhone: this.phone(),
         userCountry: this.country()
+      },
+      statusCode: {
+        429: function() {
+          alert('Sorry, you have made too many requests in the last hour. Please try again later.');
+        }
       }
     })
     .done(this.$.proxy(this.onSuccess, this))
-    .fail(this.$.proxy(this.onError, this, this.form, 'Please fill out the form completely'))
     .then(this.$.proxy(function() {
       // turn off our submit event
       this.form.off('submit.CallPower');
@@ -234,8 +248,13 @@ CallPowerForm.prototype = function() {
         // bind overlay hide to original form submit
         scriptOverlay.on('hide', this.$.proxy(this.formSubmit, this));
         scriptOverlay.on('click', this.$.proxy(function(e) {
-          if (e.target.className === scriptOverlay.attr('class')) return scriptOverlay.trigger('hide');
-          // only trigger hide when clicking overlay background, not modal
+          var target = $(e.target);
+          if (target.hasClass(scriptOverlay.attr('class')) ||
+              target.hasClass('close') ||
+              target.hasClass('closeText')) {
+            return scriptOverlay.trigger('hide');
+          }
+          // only trigger hide when clicking overlay background or hide link, not modal body
         }, this));
       } else if (this.scriptDisplay === 'replace') {
         // original form still exists, but is hidden

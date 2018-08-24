@@ -2,7 +2,7 @@
 REST API
 ===========
 
-A read-only REST API is available for integrating with external services. Access is allowed by passing an api_key parameter, or through flask user authentication. Results can be filtered by any field, using a [flask-restless](http://flask-restless.readthedocs.org/en/latest/searchformat.html) formatted parameter.
+A read-only REST API is available for integrating with external services. Access is allowed by passing an api_key parameter that is equal to the `ADMIN_API_KEY` environment variable, or through flask user authentication. Results can be filtered by any field, using a [flask-restless](http://flask-restless.readthedocs.org/en/latest/searchformat.html) formatted parameter.
 
 `GET /api/calls` returns a paginated list of Call objects. Fields include:
 
@@ -51,3 +51,13 @@ A read-only REST API is available for integrating with external services. Access
 
 `GET /api/campaign/ID/target_calls.json` returns a list of campaign calls by target and status. Results can be further limited by passing start or end parameters in ISO format.
 
+## Public read-only routes
+
+For display on external sites, these routes do not require authentication. Results are cached for 10 minutes.
+
+`GET /api/campaign/ID/count.json` returns calls aggregate statistics for a campaign
+
+* completed: total calls completed
+* last_24h: calls completed in last 24 hours
+* last_week: calls completed in the last 7 days
+* referral_codes: a hash of referral codes which have generated at least two completed calls

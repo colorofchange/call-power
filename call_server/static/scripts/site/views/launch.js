@@ -11,6 +11,9 @@
       'blur #custom_embed_options input': 'updateEmbedCode',
       'change #custom_embed_options select': 'updateEmbedCode',
       'change #embed_script_display': 'updateEmbedScriptDisplay',
+
+      'change input[name="crm_sync"]': 'toggleSyncPanel',
+
     },
 
     initialize: function() {
@@ -90,9 +93,9 @@
       }
 
       if (formType === 'custom' || formType === 'iframe') {
-        $('#embed_options').collapse('show');
+        $('.panel#embed_options').collapse('show');
       } else {
-        $('#embed_options').collapse('hide');
+        $('.panel#embed_options').collapse('hide');
       }
       if (formType === 'iframe') {
         $('#embed_options h3').text('iFrame Embed Options');
@@ -104,6 +107,14 @@
 
       this.updateEmbedCode();
       this.updateEmbedScriptDisplay();
+    },
+
+    toggleSyncPanel: function(event) {
+      if ($('input#crm_sync').is(':checked')) {
+        $('.panel#sync_options').collapse('show');
+      } else {
+        $('.panel#sync_options').collapse('hide');
+      }
     },
 
     updateEmbedCode: function(event) {

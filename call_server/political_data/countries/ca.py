@@ -54,7 +54,7 @@ class CACampaignType_Parliament(CACampaignType):
             'lower': self._get_member_of_parliament(location)
         }
 
-    def sort_targets(self, targets, subtype, order):
+    def sort_targets(self, targets, subtype, order, shuffle_chamber=False):
         result = []
 
         if subtype == 'lower':
@@ -123,7 +123,7 @@ class CACampaignType_Province(CACampaignType):
             'lower': self._get_province_representative(location, campaign_region),
         }
 
-    def sort_targets(self, targets, subtype, order):
+    def sort_targets(self, targets, subtype, order, shuffle_chamber=False):
         result = []
 
         if subtype == 'lower':

@@ -1,10 +1,13 @@
 from flask import (Blueprint, request, jsonify)
-
 from flask_login import login_required
 
 from ..extensions import cache
+from ..utils import ignore_accents
 from . import get_country_data
 
+import logging
+
+log = logging.getLogger(__name__)
 political_data = Blueprint('political_data', __name__, url_prefix='/political_data')
 
 # all political_data routes require login
@@ -35,10 +38,11 @@ def search():
     for f in filters:
         try:
             field, value = f.split('=')
-            value = value.lower()
-            results = [d for d in results if d[field].lower().startswith(value)]
-        except ValueError:
-            continue
+            value = ignore_accents(value.lower()) # ensure comparison ignores accented characters
+            results = [d for d in results if ignore_accents(d[field]).lower().startswith(value)]
+        except ValueError,e:
+          log.error(e)
+          continue
 
     return jsonify({
         'status': 'ok',

@@ -203,6 +203,12 @@
               // and display to user
               window.flashMessage(msg, 'success');
 
+              // update parent form-group status and description
+              var parentFormGroup = $('.form-group.'+response.key);
+              parentFormGroup.addClass('valid');
+              parentFormGroup.find('.input-group .help-block').text('');
+              parentFormGroup.find('.description .status').addClass('glyphicon-check');
+
               // close the modal, and cleanup subviews
               if (hideOnComplete) {
                 self.hide();

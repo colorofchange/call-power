@@ -40,10 +40,13 @@ function versionCmp (a, b) {
 };
 
 // from https://css-tricks.com/snippets/jquery/load-jquery-only-if-not-present/
-function getScript(url, success) {
+function getScript(url, success, cors) {
     var script = document.createElement('script');
     script.src = url;
-    
+    if (cors) {
+      script.crossOrigin = cors;
+    }
+
     var head = document.getElementsByTagName('head')[0],
     done = false;
     
@@ -76,4 +79,13 @@ if (typeof window.jQuery === 'undefined') {
 } else {
   // in-page jQuery is sufficient, carry on
   jQuery(document).ready(main);
+}
+
+// load sentry for frontend error tracking
+if (window.CallPowerOptions.errorTracking) {
+  getScript('https://cdn.ravenjs.com/3.22.1/raven.min.js',
+    function() {
+      Raven.config('{{DSN_PUBLIC}}').install();
+    },
+    'anonymous')
 }

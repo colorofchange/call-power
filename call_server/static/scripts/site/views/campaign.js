@@ -50,6 +50,8 @@
 
       // load existing items from hidden inputs
       this.targetListView.loadExistingItems();
+      // and insert default location
+      this.targetListView.loadDefaultLocations();
 
       $("#phone_number_set").parents(".controls").after(
         $('<div id="call_in_collisions" class="alert alert-warning col-sm-4 hidden">').append(
@@ -149,7 +151,7 @@
           }
         }
 
-        // congress: show/hide target_ordering values upper_first and lower_first
+        // congress: show/hide target_ordering fields
         if ((type === 'congress' && subtype === 'both') ||
             (type === 'state' && subtype === 'both')) {
           $('input[name="target_ordering"][value="upper-first"]').parent('label').show();
@@ -157,6 +159,16 @@
         } else {
           $('input[name="target_ordering"][value="upper-first"]').parent('label').hide();
           $('input[name="target_ordering"][value="lower-first"]').parent('label').hide();
+        }
+
+        // only show party first for multi-representative subtypes
+        if ((type === 'congress' && subtype === 'both') ||
+          (type === 'congress' && subtype === 'upper')) {
+          $('input[name="target_ordering"][value="democrats-first"]').parent('label').show();
+          $('input[name="target_ordering"][value="republicans-first"]').parent('label').show();
+        } else {
+          $('input[name="target_ordering"][value="democrats-first"]').parent('label').hide();
+          $('input[name="target_ordering"][value="republicans-first"]').parent('label').hide();
         }
       }
 
@@ -185,6 +197,9 @@
         $('input[name="target_ordering"][value="upper-first"]').parent('label').show();
         $('input[name="target_ordering"][value="lower-first"]').parent('label').show();
 
+        // targets can be shuffled within chamber
+        $('.form-group.target_shuffle_chamber').show();
+
         // target_offices can use districts
         $('.form-group.target_offices').show();
       } else {
@@ -193,6 +208,8 @@
         // target_ordering can only be 'in order' or 'shuffle'
         $('input[name="target_ordering"][value="upper-first"]').parent('label').hide();
         $('input[name="target_ordering"][value="lower-first"]').parent('label').hide();
+
+        $('.form-group.target_shuffle_chamber').hide();
 
         // target_offices will be default
         $('.form-group.target_offices').hide();
@@ -327,6 +344,13 @@
       return !!$('select option:selected', formGroup).length;
     },
 
+    validateCampaignName: function(formGroup) {
+      // trim whitespace
+      var campaignName = $('input[type=text]', formGroup).val().trim();
+      $('input[type=text]', formGroup).val(campaignName);
+      return !campaignName.endsWith('(copy)');
+    },
+
     validateField: function(formGroup, validator, message) {
       // first check to see if formGroup is present
       if (!formGroup.length) {
@@ -355,6 +379,9 @@
       // campaign country and type
       isValid = this.validateField($('.form-group.campaign_country'), this.validateSelected, 'Select a country') && isValid;
       isValid = this.validateField($('.form-group.campaign_type'), this.validateNestedSelect, 'Select a type') && isValid;
+
+      // campaign name
+      isValid = this.validateField($('.form-group.name'), this.validateCampaignName, 'Please update the campaign name') && isValid;
 
       // campaign sub-type
       isValid = this.validateField($('.form-group.campaign_subtype'), this.validateState, 'Select a sub-type') && isValid;

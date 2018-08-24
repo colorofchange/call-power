@@ -26,7 +26,7 @@ class Blocklist(db.Model):
 
     def __unicode__(self):
         if self.phone_number:
-            return self.phone_number.__unicode__()
+            return self.phone_number.e164
         if self.phone_hash:
             return self.phone_hash
         if self.ip_address:
@@ -51,8 +51,12 @@ class Blocklist(db.Model):
         if self.phone_hash:
             return self.phone_hash == hashlib.sha256(user_phone).hexdigest()
         if self.phone_number:
-            return self.phone_number == phone_number.PhoneNumber(user_phone, user_country)
-        
+            if type(user_phone) == str:
+                return self.phone_number == phone_number.PhoneNumber(user_phone, user_country)
+            elif type(user_phone) == phone_number.PhoneNumber:
+                return self.phone_number.e164 == user_phone.e164
+        return None
+
     @classmethod
     def active_blocks(cls):
         return [b for b in Blocklist.query.all() if b.is_active()]

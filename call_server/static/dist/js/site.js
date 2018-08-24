@@ -558,6 +558,8 @@ $(document).ready(function () {
 
       // load existing items from hidden inputs
       this.targetListView.loadExistingItems();
+      // and insert default location
+      this.targetListView.loadDefaultLocations();
 
       $("#phone_number_set").parents(".controls").after(
         $('<div id="call_in_collisions" class="alert alert-warning col-sm-4 hidden">').append(
@@ -657,7 +659,7 @@ $(document).ready(function () {
           }
         }
 
-        // congress: show/hide target_ordering values upper_first and lower_first
+        // congress: show/hide target_ordering fields
         if ((type === 'congress' && subtype === 'both') ||
             (type === 'state' && subtype === 'both')) {
           $('input[name="target_ordering"][value="upper-first"]').parent('label').show();
@@ -665,6 +667,16 @@ $(document).ready(function () {
         } else {
           $('input[name="target_ordering"][value="upper-first"]').parent('label').hide();
           $('input[name="target_ordering"][value="lower-first"]').parent('label').hide();
+        }
+
+        // only show party first for multi-representative subtypes
+        if ((type === 'congress' && subtype === 'both') ||
+          (type === 'congress' && subtype === 'upper')) {
+          $('input[name="target_ordering"][value="democrats-first"]').parent('label').show();
+          $('input[name="target_ordering"][value="republicans-first"]').parent('label').show();
+        } else {
+          $('input[name="target_ordering"][value="democrats-first"]').parent('label').hide();
+          $('input[name="target_ordering"][value="republicans-first"]').parent('label').hide();
         }
       }
 
@@ -693,6 +705,9 @@ $(document).ready(function () {
         $('input[name="target_ordering"][value="upper-first"]').parent('label').show();
         $('input[name="target_ordering"][value="lower-first"]').parent('label').show();
 
+        // targets can be shuffled within chamber
+        $('.form-group.target_shuffle_chamber').show();
+
         // target_offices can use districts
         $('.form-group.target_offices').show();
       } else {
@@ -701,6 +716,8 @@ $(document).ready(function () {
         // target_ordering can only be 'in order' or 'shuffle'
         $('input[name="target_ordering"][value="upper-first"]').parent('label').hide();
         $('input[name="target_ordering"][value="lower-first"]').parent('label').hide();
+
+        $('.form-group.target_shuffle_chamber').hide();
 
         // target_offices will be default
         $('.form-group.target_offices').hide();
@@ -835,6 +852,13 @@ $(document).ready(function () {
       return !!$('select option:selected', formGroup).length;
     },
 
+    validateCampaignName: function(formGroup) {
+      // trim whitespace
+      var campaignName = $('input[type=text]', formGroup).val().trim();
+      $('input[type=text]', formGroup).val(campaignName);
+      return !campaignName.endsWith('(copy)');
+    },
+
     validateField: function(formGroup, validator, message) {
       // first check to see if formGroup is present
       if (!formGroup.length) {
@@ -863,6 +887,9 @@ $(document).ready(function () {
       // campaign country and type
       isValid = this.validateField($('.form-group.campaign_country'), this.validateSelected, 'Select a country') && isValid;
       isValid = this.validateField($('.form-group.campaign_type'), this.validateNestedSelect, 'Select a type') && isValid;
+
+      // campaign name
+      isValid = this.validateField($('.form-group.name'), this.validateCampaignName, 'Please update the campaign name') && isValid;
 
       // campaign sub-type
       isValid = this.validateField($('.form-group.campaign_subtype'), this.validateState, 'Select a sub-type') && isValid;
@@ -907,6 +934,9 @@ $(document).ready(function () {
       'blur #custom_embed_options input': 'updateEmbedCode',
       'change #custom_embed_options select': 'updateEmbedCode',
       'change #embed_script_display': 'updateEmbedScriptDisplay',
+
+      'change input[name="crm_sync"]': 'toggleSyncPanel',
+
     },
 
     initialize: function() {
@@ -986,9 +1016,9 @@ $(document).ready(function () {
       }
 
       if (formType === 'custom' || formType === 'iframe') {
-        $('#embed_options').collapse('show');
+        $('.panel#embed_options').collapse('show');
       } else {
-        $('#embed_options').collapse('hide');
+        $('.panel#embed_options').collapse('hide');
       }
       if (formType === 'iframe') {
         $('#embed_options h3').text('iFrame Embed Options');
@@ -1000,6 +1030,14 @@ $(document).ready(function () {
 
       this.updateEmbedCode();
       this.updateEmbedScriptDisplay();
+    },
+
+    toggleSyncPanel: function(event) {
+      if ($('input#crm_sync').is(':checked')) {
+        $('.panel#sync_options').collapse('show');
+      } else {
+        $('.panel#sync_options').collapse('hide');
+      }
     },
 
     updateEmbedCode: function(event) {
@@ -1364,7 +1402,7 @@ $(document).ready(function () {
       }
 
       var isValid = validator(parentGroup);
-      
+
       // put message in last help-block
       $('.help-block', parentGroup).last().text((!isValid) ? message : '');
 
@@ -1372,7 +1410,6 @@ $(document).ready(function () {
       parentGroup.toggleClass('has-error', !isValid);
       return isValid;
     },
-
 
     validateForm: function() {
       var isValid = true;
@@ -1396,6 +1433,7 @@ $(document).ready(function () {
       }, 'Uploaded file must be an MP3 or WAV. M4A or iPhone Voice Memos will not play back.') && isValid;
 
       isValid = this.validateField($('.tab-pane.active#text-to-speech'), function() {
+        self.validateTextToSpeech();
         return !!self.textToSpeech;
       }, 'Please enter text to read') && isValid;
 
@@ -1414,7 +1452,7 @@ $(document).ready(function () {
       // submit file via ajax with html5 FormData
       // probably will not work in old IE
       var formData = new FormData();
-      
+
       // add inputs individually, so we can control how we add files
       var formItems = $('form.modal-body', this.$el).find('input[type!="file"], select, textarea');
       _.each(formItems, function(item) {
@@ -1462,8 +1500,10 @@ $(document).ready(function () {
               self.saved = true;
               self.$el.modal('hide');
             } else {
-              console.error(response);
-              window.flashMessage(response.errors, 'error', true);
+              Object.keys(response.errors).forEach(field => {
+                var msg = response.errors[field];
+                self.validateField($('.tab-pane.active'), () => { false; }, msg);
+              });
             }
           },
           error: function(xhr, status, error) {
@@ -1480,6 +1520,7 @@ $(document).ready(function () {
   });
 
 })();
+
 (function () {
   CallPower.Routers.Campaign = Backbone.Router.extend({
     routes: {
@@ -1491,6 +1532,7 @@ $(document).ready(function () {
       "campaign/:id/audio": "audioForm",
       "campaign/:id/launch": "launchForm",
       "campaign/:id/calls": "callLog",
+      "campaign/:id/schedule": "scheduleLog",
       "system": "systemForm",
       "statistics": "statisticsView",
     },
@@ -1511,6 +1553,10 @@ $(document).ready(function () {
       CallPower.callLog = new CallPower.Views.CallLog(id);
     },
 
+    scheduleLog: function(id) {
+      CallPower.scheduleLog = new CallPower.Views.ScheduleLog(id);
+    },
+
     systemForm: function() {
       CallPower.systemForm = new CallPower.Views.SystemForm();
     },
@@ -1519,6 +1565,269 @@ $(document).ready(function () {
       CallPower.statisticsView = new CallPower.Views.StatisticsView();
     }
   });
+})();
+/*global CallPower, Backbone */
+
+(function () {
+    CallPower.Models.Schedule = Backbone.Model.extend({
+    defaults: {
+      id: null,
+      created_at: null,
+      user_phone: null,
+      time_to_call: null,
+      last_called: null,
+      num_calls: null
+    },
+  });
+
+  CallPower.Collections.ScheduleList = Backbone.PageableCollection.extend({
+    model: CallPower.Models.Schedule,
+    url: '/api/schedule',
+    // turn off PageableCollection queryParams by setting to null
+    // per https://github.com/backbone-paginator/backbone.paginator/issues/240
+    queryParams: {
+      pageSize: null,
+      currentPage: "page",
+      totalRecords: null,
+      totalPages: null,
+    },
+    state: {
+      firstPage: 1,
+      pageSize: 10,
+      sortKey: "last_called",
+      direction: -1,
+    },
+
+    initialize: function(campaign_id) {
+      this.campaign_id = campaign_id;
+    },
+
+    parseRecords: function(response) {
+      return response.objects;
+    },
+
+    parseState: function (resp, queryParams, state, options) {
+      return {
+        currentPage: resp.page,
+        totalRecords: resp.num_results
+      };
+    },
+
+    fetch: function() {
+      // transform filters and pagination to flask-restless style
+      // always include campaign_id filter
+      var filters = [{name: 'campaign_id', op: 'eq', val: this.campaign_id}];
+      if (this.filters) {
+        Array.prototype.push.apply(filters, this.filters);
+      }
+      // calculate offset from currentPage * pageSize, accounting for 1-base
+      var currentOffset = Math.max(this.state.currentPage*-1, 0) * this.state.pageSize;
+      var flaskQuery = {
+        filters: filters,
+        offset: currentOffset,
+        order_by: [{
+          field: this.state.sortKey,
+          direction: this.state.direction == -1 ? "asc" : "desc"
+        }]
+      };
+      var fetchOptions = _.extend({ data: {
+        q: JSON.stringify(flaskQuery)
+      }});
+      return Backbone.PageableCollection.prototype.fetch.call(this, fetchOptions);
+    }
+  });
+
+  CallPower.Views.ScheduleItemView = Backbone.View.extend({
+    tagName: 'tr',
+
+    initialize: function() {
+      this.template = _.template($('#schedule-log-tmpl').html(), { 'variable': 'data' });
+    },
+
+    render: function() {
+      var data = this.model.toJSON();
+      var html = this.template(data);
+      this.$el.html(html);
+      return this;
+    },
+  });
+
+  CallPower.Views.ScheduleLog = Backbone.View.extend({
+    el: $('#schedule_log'),
+    el_paginator: $('#schedule-list-paginator'),
+
+    events: {
+      'change .filters input': 'updateFilters',
+      'change .filters select': 'updateFilters',
+      'click .edit-inline': 'showEditForm',
+      'submit form.schedule-edit': 'editSchedule',
+      'submit form.schedule-delete': 'unsubscribeSchedule',
+    },
+
+
+    initialize: function(campaign_id) {
+      this.collection = new CallPower.Collections.ScheduleList(campaign_id);
+      this.listenTo(this.collection, 'reset add remove', this.renderCollection);
+      this.views = [];
+
+      this.$el.find('.input-daterange input').each(function (){
+        $(this).datepicker({
+          'format': "yyyy/mm/dd",
+          'orientation': 'top',
+        });
+      });
+
+      this.updateFilters();
+    },
+
+    pagingatorPage: function(event, num){
+      this.collection.getPage(num);
+    },
+
+    updateFilters: function(event) {
+      var subscribed = $('select[name="subscribed"]').val();
+      var start = $('input[name="start"]').datepicker('getDate');
+      var end = $('input[name="end"]').datepicker('getDate');
+
+      var start_date = new Date(start);
+      var end_date = new Date(end);
+
+      if (start_date > end_date) {
+        $('.input-daterange input[name="start"]').addClass('error');
+        return false;
+      } else {
+        $('.input-daterange input').removeClass('error');
+      }
+
+      var filters = [];
+      if (subscribed) {
+        filters.push({'name': 'subscribed', 'op': 'eq', 'val': subscribed});
+      }
+      if (start) {
+        filters.push({'name': 'last_called', 'op': 'gt', 'val': start_date.toISOString()});
+      }
+      if (end) {
+        filters.push({'name': 'last_called', 'op': 'lt', 'val': end_date.toISOString()});
+      }
+
+      var search_phone = $('input[name="call-search"]').val().replace('-','');
+      if (search_phone) {
+        filters.push({'name': 'user_phone', 'op': 'eq', 'val': search_phone});
+      }
+
+      this.collection.filters = filters;
+
+      var self = this;
+      this.collection.fetch().then(function() {
+        // reset paginator with new results
+        self.el_paginator.bootpag({
+          total: self.collection.state.totalPages,
+          page: self.collection.state.currentPage,
+          maxVisible: 5,
+        }).on('page', _.bind(self.pagingatorPage, self));
+      });
+    },
+
+    renderCollection: function() {
+      var self = this;
+
+      // clear any existing subviews
+      this.destroyViews();
+      var $list = this.$('table tbody').empty();
+
+      // create subviews for each item in collection
+      this.views = this.collection.map(this.createItemView, this);
+      $list.append( _.map(this.views,
+        function(view) { return view.render(self.campaign_id).el; },
+        this)
+      );
+
+      var renderedItems = this.$('table tbody tr');
+      if (renderedItems.length === 0) {
+        this.$('table tbody').html('<p>No results. Try adjusting filters.</p>');
+      }
+    },
+
+    destroyViews: function() {
+      // destroy each subview
+      _.invoke(this.views, 'destroy');
+      this.views.length = 0;
+    },
+
+    createItemView: function (model) {
+      return new CallPower.Views.ScheduleItemView({ model: model });
+    },
+
+    showEditForm: function(event) {
+      var target = $(event.target)
+      var form = target.parent('form.schedule-edit');
+      var input = $('<input type="text" name="time" />').val(target.text()).width(target.width()+10);
+      form.prepend(input);
+      target.hide();
+      var button = form.children('button[type=submit]').removeClass('hide').show();
+    },
+
+    editSchedule: function(event) {
+      event.preventDefault();
+      var form = $(event.target);
+      var input = $(form).children('input');
+      if (form.hasClass('disabled')) {
+        return false;
+      }
+
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serializeArray(),
+        success: function(response) {
+          if (response.status === 'ok') {
+            //hide the form elements
+            var link = $(form).children('a.edit-inline');
+            link.text(input.val());
+
+            // redisplay the static elements
+            input.remove();
+            link.show();
+            var button = form.children('button[type=submit]');
+            button.fadeOut(500);
+          };
+        },
+        error: function(xhr) {
+          var error = JSON.parse(xhr.responseText);
+          input.addClass('has-error');
+          console.error('unable to edit schedule', error);
+        }
+      });
+    },
+
+    unsubscribeSchedule: function(event) {
+      event.preventDefault();
+      var form = $(event.target);
+      if (form.hasClass('disabled')) {
+        return false;
+      }
+
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        success: function(response) {
+          if (response.status == 'deleted') {
+            // put it in the right table cell, disable the button
+            $(form).addClass('disabled');
+            var button = $(form).find('button[type="submit"]');
+            button.addClass('disabled');
+            button.text('Unsubscribed');
+            button.removeClass('btn-danger');
+          };
+        },
+        error: function(response) {
+          console.error('unable to delete');
+        }
+      });
+    }
+
+  });
+
 })();
 /*global CallPower, Backbone */
 
@@ -1715,6 +2024,7 @@ $(document).ready(function () {
         if (person.bioguide_id) {
           uid_prefix = 'us:bioguide:';
           person.uid = uid_prefix+person.bioguide_id;
+          person.location = 'DC';
         } else if (person.leg_id) {
           uid_prefix = 'us_state:openstates:';
           person.uid = uid_prefix+person.leg_id;
@@ -1739,12 +2049,17 @@ $(document).ready(function () {
             office.title = person.title;
             office.first_name = person.first_name;
             office.last_name = person.last_name;
-            office.uid = person.uid+(office.id || '');
+            if (person.bioguide_id) {
+              // us_congress office.id have bioguide prefix
+              office.uid =uid_prefix + office.id;
+            } else {
+              office.uid = person.uid+(office.id || '');
+            }
             office.phone = office.phone || office.tel;
-            var office_name = office.office_name || office.name || office.city || office.type;
+            var office_location = office.office_name || office.name || office.city || office.type;
 
-            // remove "office" from office_name, we append that in the template
-            office.office_name = office_name.replace(/office/i,'');
+            // remove "office" from office_location
+            office.location = office_location.replace(/office/i,'');
             var li = renderTemplate("#search-results-item-tmpl", office);
             dropdownMenu.append(li);
           }
@@ -1963,6 +2278,8 @@ $(document).ready(function () {
         $.getJSON(tableDataUrl).success(function(data) {
           var content = self.targetDataTemplate(data.objects);
           return $('table#table_data').html(content).promise();
+        }).error(function() {
+          $('table#table_data').html('<span class="glyphicon glyphicon-exclamation-sign error"></span> Error loading table');
         }).then(function() {
           return $('table#table_data').tablesorter({
             theme: "bootstrap",
@@ -1972,7 +2289,7 @@ $(document).ready(function () {
                 sorter:'lastname'
               }
             },
-            sortList: [[3,1]],
+            sortList: [[3,1], [1, 0]],
             sortInitialOrder: "asc",
             widgets: [ "uitheme", "columns", "zebra", "output"],
             widgetOptions: {
@@ -2006,6 +2323,7 @@ $(document).ready(function () {
 
     events: {
       'click .reveal': 'toggleSecret',
+      'submit form.crm-sync': 'syncSubmit',
     },
 
     toggleSecret: function(event) {
@@ -2015,8 +2333,29 @@ $(document).ready(function () {
         } else {
             input.prop('type','password');
         }
-    }
+    },
 
+    syncSubmit: function(event) {
+      event.preventDefault();
+      var form = $(event.target);
+      if (form.hasClass('disabled')) {
+        return false;
+      }
+
+      $.ajax({
+        url: form.attr('action'),
+        method: 'POST',
+        success: function(response) {
+          if (response.scheduled_start_time) {
+            console.log('starting at', response.scheduled_start_time);
+            // put it in the right table cell, disable the button
+            $(form).siblings('.last_sync_time').text(response.scheduled_start_time);
+            $(form).addClass('disabled');
+            $(form).find('button[type="submit"]').addClass('disabled');
+          };
+        }
+      });
+    }
   });
 
 })();
@@ -2037,7 +2376,10 @@ $(document).ready(function () {
 
   CallPower.Collections.TargetList = Backbone.Collection.extend({
     model: CallPower.Models.Target,
-    comparator: 'order'
+    comparator: function( model ) {
+      // have to coerce to integer, because otherwise it will sort lexicographically
+      return parseInt(model.get('order'));
+    }
   });
 
   CallPower.Views.TargetItemView = Backbone.View.extend({
@@ -2144,6 +2486,26 @@ $(document).ready(function () {
       }
     },
 
+    loadDefaultLocations: function() {
+      // trigger focusout to cause placeholder text to display
+      $('span.display-parens').trigger('focusout');
+
+      // set default to capital, based on country and type
+      var country = $('select#campaign_country').val();
+      var type = $('select#campaign_type').val();
+      if (country == 'us' && type == 'congress') {
+        $('span[data-field="location"]').each(function() {
+          var item = $(this);
+          var phone = item.next('span[data-field="number"]').text();
+          var phoneInDC = phone.indexOf('202-') == 0 // when rendered by search
+                     || phone.indexOf('202-') == 3 //when rendered by load
+          if (item.text() === item.attr('placeholder') && phoneInDC) {
+            item.text('DC').removeClass('placeholder');
+          }
+        })
+      }
+    },
+
     render: function() {
       var $list = this.$('ol.target-list').empty().show();
 
@@ -2180,6 +2542,7 @@ $(document).ready(function () {
       });
 
       $('.target-list.sortable').sortable('update');
+      this.loadDefaultLocations();
 
       return this;
     },
@@ -2193,7 +2556,7 @@ $(document).ready(function () {
 
       this.collection.each(function(model, index) {
         // create new hidden inputs named target_set-N-FIELD
-        var fields = ['order','title','name','number','uid'];
+        var fields = ['order','title','name','number','location','uid'];
         _.each(fields, function(field) {
           var input = $('<input name="target_set-'+index+'-'+field+'" type="hidden" />');
           input.val(model.get(field));
@@ -2218,7 +2581,7 @@ $(document).ready(function () {
       var items = [];
       _(target_set_length).times(function(n) {
         var model = new CallPower.Models.Target();
-        var fields = ['order','title','name','number','uid'];
+        var fields = ['order','title','name','number','location','uid'];
         _.each(fields, function(field) {
           // pull field values out of each input
           var sel = 'input[name="target_set-'+n+'-'+field+'"]';
@@ -2472,6 +2835,12 @@ $(document).ready(function () {
               var msg = response.message + ': '+ fieldDescription + ' version ' + response.version;
               // and display to user
               window.flashMessage(msg, 'success');
+
+              // update parent form-group status and description
+              var parentFormGroup = $('.form-group.'+response.key);
+              parentFormGroup.addClass('valid');
+              parentFormGroup.find('.input-group .help-block').text('');
+              parentFormGroup.find('.description .status').addClass('glyphicon-check');
 
               // close the modal, and cleanup subviews
               if (hideOnComplete) {

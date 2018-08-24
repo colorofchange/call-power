@@ -15,7 +15,10 @@
 
   CallPower.Collections.TargetList = Backbone.Collection.extend({
     model: CallPower.Models.Target,
-    comparator: 'order'
+    comparator: function( model ) {
+      // have to coerce to integer, because otherwise it will sort lexicographically
+      return parseInt(model.get('order'));
+    }
   });
 
   CallPower.Views.TargetItemView = Backbone.View.extend({
@@ -122,6 +125,26 @@
       }
     },
 
+    loadDefaultLocations: function() {
+      // trigger focusout to cause placeholder text to display
+      $('span.display-parens').trigger('focusout');
+
+      // set default to capital, based on country and type
+      var country = $('select#campaign_country').val();
+      var type = $('select#campaign_type').val();
+      if (country == 'us' && type == 'congress') {
+        $('span[data-field="location"]').each(function() {
+          var item = $(this);
+          var phone = item.next('span[data-field="number"]').text();
+          var phoneInDC = phone.indexOf('202-') == 0 // when rendered by search
+                     || phone.indexOf('202-') == 3 //when rendered by load
+          if (item.text() === item.attr('placeholder') && phoneInDC) {
+            item.text('DC').removeClass('placeholder');
+          }
+        })
+      }
+    },
+
     render: function() {
       var $list = this.$('ol.target-list').empty().show();
 
@@ -158,6 +181,7 @@
       });
 
       $('.target-list.sortable').sortable('update');
+      this.loadDefaultLocations();
 
       return this;
     },
@@ -171,7 +195,7 @@
 
       this.collection.each(function(model, index) {
         // create new hidden inputs named target_set-N-FIELD
-        var fields = ['order','title','name','number','uid'];
+        var fields = ['order','title','name','number','location','uid'];
         _.each(fields, function(field) {
           var input = $('<input name="target_set-'+index+'-'+field+'" type="hidden" />');
           input.val(model.get(field));
@@ -196,7 +220,7 @@
       var items = [];
       _(target_set_length).times(function(n) {
         var model = new CallPower.Models.Target();
-        var fields = ['order','title','name','number','uid'];
+        var fields = ['order','title','name','number','location','uid'];
         _.each(fields, function(field) {
           // pull field values out of each input
           var sel = 'input[name="target_set-'+n+'-'+field+'"]';

@@ -1,0 +1,98 @@
+{% set page_title = "Call Log" %}
+{% extends "layouts/base_admin.html" %}
+
+{% block body %}
+<div class="container" id="schedule_log">
+    <h2>{{ _('Scheduled Calls') }}</h2>
+
+    <form class="form-horizontal filters">
+        <fieldset class="border">
+        <legend>Filter</legend>
+
+        <div class="row">
+            <div class="col-sm-2">
+                <label class="inline">Subscribed</label>
+            </div>
+
+            <div class="col-sm-8">
+                <select name="subscribed">
+                    <option value="">Either</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-sm-2">
+                <label class="inline">Last Called</label>
+            </div>
+            <div class="input-group input-daterange col-sm-8">
+                <input type="text" name="start" placeholder="start" value="{{start}}"/>
+                <span class="add-on">to</span>
+                <input type="text" name="end" placeholder="end" value="{{end}}"/>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-sm-2">
+                <label class="inline">User Phone</label>
+            </div>
+            <div class="input-group col-sm-5" id="call-search">
+                <div class="search-results open">
+                    <input type="text" class="form-control" name="call-search" placeholder="search"/>
+                </div>
+                <span class="input-group-btn">
+                    <button class="btn btn-default search" type="button">
+                        <span class="glyphicon glyphicon-search"></span>
+                        <span class="glyphicon glyphicon-repeat spin hide-initial"></span>
+                    </button>
+                </span>
+            </div>
+        </div>
+        </fieldset>
+    </form>
+
+    <table class="table" id="schedule-list">
+        <thead>
+            <tr>
+                <th>Created</th>
+                <th>Last Called</th>
+                <th>Phone Number</th>
+                <th>Time to Call (UTC)</th>
+                <th>Calls Placed</th>
+                <th>Active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="schedule-list-paginator"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/template" id="schedule-log-tmpl">
+    <td><%= new Date(data.created_at).toDateString() %> </td>
+    <td><%= data.last_called ? (new Date(data.last_called).toDateString()) : 'never' %></td>
+    <td><%= data.user_phone %></td>
+    <td><form class="schedule-edit form-inline pull-left" method="POST" action="/schedule/<%=data.campaign_id%>/<%=data.user_phone%>">
+            <a class="edit-inline" href="#"><%= (data.time_to_call).split('.')[0].split(':').slice(0,2).join(':') %></a>
+            <input id="csrf_token" name="csrf_token" type="hidden" value="{{csrf_token()}}">
+            <button type="submit" class="btn btn-success hide">Save</button>
+        </form>
+    </td>
+    <td><%= data.num_calls %></td>
+    <td><span class="glyphicon <%= data.subscribed ? 'glyphicon-ok' : 'glyphicon-remove' %>"></span></td>
+    <% if (data.subscribed) { %>
+        <td><form class="schedule-delete form-inline pull-right" method="DELETE" action="/schedule/<%=data.campaign_id%>/<%=data.user_phone%>">
+            <input id="csrf_token" name="csrf_token" type="hidden" value="{{csrf_token()}}">
+            <button type="submit" class="btn btn-danger btn-small">Unsubscribe</button>
+        </form></td>
+    <% } else { %>
+        <td></td>
+    <% } %>
+</script>
+
+{% endblock %}

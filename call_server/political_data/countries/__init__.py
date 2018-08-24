@@ -162,4 +162,7 @@ class CampaignType(object):
         if isinstance(location, basestring):
             location = self.data_provider.get_location(campaign.locate_by, location)
         all_targets = self.all_targets(location, campaign.campaign_state)
-        return self.sort_targets(all_targets, campaign.campaign_subtype, campaign.target_ordering)
+        return self.sort_targets(all_targets,
+            campaign.campaign_subtype,
+            campaign.target_ordering,
+            shuffle_chamber=campaign.target_shuffle_chamber)

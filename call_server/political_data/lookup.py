@@ -3,8 +3,15 @@ from collections import OrderedDict
 import random
 
 from ..extensions import cache
-from ..campaign.constants import INCLUDE_SPECIAL_FIRST, INCLUDE_SPECIAL_LAST, INCLUDE_SPECIAL_ONLY, SEGMENT_BY_LOCATION
+from ..campaign.constants import (SEGMENT_BY_LOCATION,
+    INCLUDE_SPECIAL_BEFORE, INCLUDE_SPECIAL_AFTER,
+    INCLUDE_SPECIAL_ONLY, INCLUDE_SPECIAL_FIRST,
+)
 
+def validate_location(location, campaign, cache=cache):
+    campaign_data = campaign.get_campaign_data(cache)
+    validated_location = campaign_data.data_provider.get_location(campaign.locate_by, location)
+    return validated_location
 
 def locate_targets(location, campaign, skip_special=False, cache=cache):
     """
@@ -29,16 +36,43 @@ def locate_targets(location, campaign, skip_special=False, cache=cache):
         if campaign.target_ordering == 'shuffle':
             random.shuffle(special_targets)
 
-        if campaign.include_special == INCLUDE_SPECIAL_FIRST:
+        if campaign.include_special == INCLUDE_SPECIAL_BEFORE:
+            # include special targets before location targets
             combined = special_targets + location_targets
             return list(OrderedDict.fromkeys(combined))
-        elif campaign.include_special == INCLUDE_SPECIAL_LAST:
+        elif campaign.include_special == INCLUDE_SPECIAL_AFTER:
+            # include special targets after location targets
             combined = location_targets + special_targets
             return list(OrderedDict.fromkeys(combined))
         elif campaign.include_special == INCLUDE_SPECIAL_ONLY:
             # find overlap between special_targets and location_targets
-            overlap = set(special_targets).intersection(set(location_targets))
-            return list(overlap)
+            # use nested loops instead of set intersections, so we can match string startswith
+            # and maintain ordering
+            overlap_list = list()
+            for l in location_targets:
+                for t in special_targets:
+                    if t.startswith(l):
+                        if t not in overlap_list:
+                            overlap_list.append(t)
+
+            if campaign.target_ordering == 'shuffle':
+                random.shuffle(overlap_list)
+            return overlap_list
+        elif campaign.include_special == INCLUDE_SPECIAL_FIRST:
+            # if location target is in special targets, put it first
+            # then include other special targets
+            first_targets = list()
+
+            for l in location_targets:
+                for t in special_targets:
+                    if t.startswith(l):
+                        if t not in first_targets:
+                            first_targets.insert(0, t)
+            
+            if campaign.target_ordering == 'shuffle':
+                random.shuffle(special_targets)
+            combined = first_targets + special_targets
+            return list(OrderedDict.fromkeys(combined))
         else:
             return special_targets
     else:

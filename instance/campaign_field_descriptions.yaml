@@ -1,11 +1,17 @@
-campaign_type: This campaign targets which type of decision-makers?msg_schedule_stop
+campaign_type: This campaign targets which type of decision-makers?
 segment_by: Segment callers to targets by which attribute?
 include_custom: Include custom targets in addition to location-segmented ones?
 locate_by: Determine location by which attribute?
 target_set: Search for target phone numbers, or add them directly.
 target_ordering: |
     Calls will be placed as ordered above. Shuffle is re-done for every caller.
+target_shuffle_chamber: |
+  Shuffle target ordering within the same chamber. Re-done for every caller.
+  Otherwise, ordering defaults to political data source (often alphabetical by last name).
 target_offices: Which office should callers be connected to?
+phone_number_set: |
+  Campaign connection phone numbers for users. Targets will see individual caller IDs.
+  You may need more than one if you are expecting very high volumes. Each number can place one outgoing call per second.
 
 msg_intro: Introduce yourself and the campaign briefly. First thing the caller hears when they start the call.
 msg_intro_confirm: Ask the caller to get started by pressing the star key. Used to screen out voicemails.
@@ -32,3 +38,6 @@ embed_code: Copy and paste this javascript into your action page.
 embed_custom_js: Javascript that will run after the success callback. Eval'ed directly, so be careful.
 embed_custom_onload: Javascript that will run after the callPowerForm is attached. Eval'ed directly, so be careful.
 embed_redirect: After making call, redirect the page to this URL using Javascript.
+
+crm_sync: Automatically sync actions for this campaign to the configured CRM
+crm_id: Unique descriptor of the CRM campaign page. For ActionKit, this is the page name.

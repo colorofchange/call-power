@@ -20,7 +20,10 @@ from .models import (Campaign, Target, CampaignTarget,
                      AudioRecording, CampaignAudioRecording,
                      TwilioPhoneNumber)
 from ..call.models import Call
+from ..sync.models import SyncCampaign
 from ..schedule.models import ScheduleCall
+
+
 from .forms import (CountryTypeForm, CampaignForm, CampaignAudioForm,
                     AudioRecordingForm, CampaignLaunchForm,
                     CampaignStatusForm, TargetForm)
@@ -138,6 +141,7 @@ def form(country_code=None, campaign_type=None, campaign_id=None, campaign_langu
     if campaign.include_special:
         form.show_special.data = True
 
+    form._obj = campaign # needed for uniqueness validator
     if form.validate_on_submit():
         # can't use populate_obj with nested forms, iterate over fields manually
         for field in form:
@@ -200,7 +204,7 @@ def form(country_code=None, campaign_type=None, campaign_id=None, campaign_langu
 @campaign.route('/<int:campaign_id>/copy', methods=['GET', 'POST'])
 def copy(campaign_id):
     orig_campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
-    new_campaign = duplicate_object(orig_campaign)
+    new_campaign = duplicate_object(orig_campaign, skip=['scheduled_call_subscribed'])
     new_campaign.name = orig_campaign.name + " (copy)"
     db.session.add(new_campaign)
     db.session.commit()
@@ -208,7 +212,6 @@ def copy(campaign_id):
     # duplicate_object skips sets
     # recreate m2m objects manually
     if orig_campaign.target_set:
-
         for target in orig_campaign.target_set:
             # update or create CampaignTarget membership
             try:
@@ -222,6 +225,16 @@ def copy(campaign_id):
         new_campaign.target_set = orig_campaign.target_set
         db.session.add(new_campaign)
         db.session.commit()
+
+    # loop over selected audio recordings for the original campaign
+    for audio_recording in orig_campaign._audio_query():
+        # create new ones for the new campaign
+        new_audio_recording = CampaignAudioRecording()
+        new_audio_recording.campaign = new_campaign
+        new_audio_recording.recording = audio_recording.recording
+        new_audio_recording.selected = True
+        db.session.add(new_audio_recording)
+    db.session.commit()
 
     flash('Campaign copied.', 'success')
     return redirect(url_for('campaign.form', campaign_id=new_campaign.id))
@@ -278,7 +291,12 @@ def upload_recording(campaign_id):
         file_storage = request.files.get('file_storage')
         file_type = form.data.get('file_type', 'mp3')
         if file_storage:
-            file_storage.filename = "campaign_{}_{}_{}.{}".format(campaign.id, message_key, recording.version, file_type)
+            original_extension = "." in file_storage.filename and \
+                    file_storage.filename.rsplit('.', 1)[1].lower()
+            extension = original_extension or "mp3" # default to mp3, eg for uploaded blobs
+            file_storage.filename = "campaign_{}_{}_{}.{}" \
+                .format(campaign.id, message_key, recording.version, extension)
+
             recording.file_storage = file_storage
             recording.text_to_speech = ''
         else:
@@ -409,8 +427,12 @@ def launch(campaign_id):
             campaign.embed = {}
 
         campaign.embed['script'] = form.embed_script.data
-
         db.session.add(campaign)
+
+        if form.crm_sync.data and form.crm_id.data:
+            sync_campaign = SyncCampaign(campaign.id, form.crm_id.data)
+            db.session.add(sync_campaign)
+        
         db.session.commit()
 
         flash('Campaign launched!', 'success')
@@ -434,8 +456,18 @@ def launch(campaign_id):
             if campaign.embed.get('script'):
                 form.embed_script.data = campaign.embed.get('script')
 
+    if campaign.prompt_schedule:
+        campaign_scheduled = {
+            'subscribers': campaign.scheduled_calls_subscribers().count(),
+            'calls': campaign.scheduled_calls_subscribers().with_entities(func.sum(ScheduleCall.num_calls)).scalar() or 0
+        }
+    else:
+        campaign_scheduled = None
+
     return render_template('campaign/launch.html', campaign=campaign,
-        campaign_data=campaign.get_campaign_data(), form=form,
+        campaign_data=campaign.get_campaign_data(),
+        campaign_scheduled=campaign_scheduled,
+        form=form,
         descriptions=current_app.config.CAMPAIGN_FIELD_DESCRIPTIONS)
 
 
@@ -449,8 +481,8 @@ def status(campaign_id):
         db.session.add(campaign)
         db.session.commit()
 
-        if campaign.status == 'paused':
-            # unsubscribe outgoing recurring calls
+        if campaign.status in ['paused', 'archived']:
+            # stop recurring outgoing calls
             scheduled_calls = ScheduleCall.query.filter_by(campaign=campaign)
             for sc in scheduled_calls:
                 sc.stop_job()
@@ -478,3 +510,14 @@ def calls(campaign_id):
     end = request.args.get("end") or (start + datetime.timedelta(days=1))
 
     return render_template('campaign/calls.html', campaign=campaign, start=start, end=end)
+
+
+@campaign.route('/<int:campaign_id>/schedule', methods=['GET'])
+def schedule(campaign_id):
+    campaign = Campaign.query.filter_by(id=campaign_id).first_or_404()
+    # call lookup handled via api ajax to /api/schedule
+
+    start = request.args.get("start") or datetime.date.today()
+    end = request.args.get("end") or (start + datetime.timedelta(days=1))
+
+    return render_template('campaign/schedule.html', campaign=campaign, start=start, end=end)
