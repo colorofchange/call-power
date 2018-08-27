@@ -2,7 +2,6 @@ import os
 import twilio.rest
 import pyopenstates
 
-
 class DefaultConfig(object):
     PROJECT = 'CallPower'
     DEBUG = False
