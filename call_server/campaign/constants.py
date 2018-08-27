@@ -17,14 +17,16 @@ LOCATION_CHOICES = (
     (LOCATION_DISTRICT, 'District')
 )
 
-INCLUDE_SPECIAL_FIRST = 'first'
-INCLUDE_SPECIAL_LAST = 'last'
+INCLUDE_SPECIAL_BEFORE = 'before'
+INCLUDE_SPECIAL_AFTER = 'after'
 INCLUDE_SPECIAL_ONLY = 'only'
+INCLUDE_SPECIAL_FIRST = 'first'
 INCLUDE_SPECIAL_CHOCIES = (
     ('', '- choose order -'),
-    (INCLUDE_SPECIAL_FIRST, 'Before'),
-    (INCLUDE_SPECIAL_LAST, 'After'),
+    (INCLUDE_SPECIAL_BEFORE, 'Before'),
+    (INCLUDE_SPECIAL_AFTER, 'After'),
     (INCLUDE_SPECIAL_ONLY, 'Only If'),
+    (INCLUDE_SPECIAL_FIRST, 'First If'),
 )
 
 TARGET_OFFICE_DISTRICT = 'district'
@@ -71,19 +73,20 @@ TWILIO_SID_LENGTH = 34
 # from https://www.twilio.com/docs/api/twiml/say#attributes-alice
 # enable more when we get political data for other countries
 LANGUAGE_CHOICES = (
-    # ('da', 'Danish'),
-    # ('de', 'German'),
     ('en', 'English'),
+
+    # ('da', 'Danish'),
+    ('de', 'German'),
     # ('ca', 'Catalan'),
     ('es', 'Spanish'),
     # ('fi', 'Finnish'),
     ('fr', 'French'),
-    # ('it', 'Italian'),
+    ('it', 'Italian'),
     # ('ja', 'Japanese'),
     # ('ko', 'Korean'),
     # ('no', 'Norwegian'),
     # ('nl', 'Dutch'),
-    # ('pl', 'Polish'),
+    ('pl', 'Polish'),
     # ('pt', 'Portuguese'),
     # ('ru', 'Russian'),
     # ('sv', 'Swedish'),

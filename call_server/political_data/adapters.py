@@ -64,7 +64,8 @@ class UnitedStatesData(DataAdapter):
         adapted = {
             'number': data.get('phone', ''), # DC office number
             'title': data.get('title', ''),
-            'uid': data.get('bioguide_id', '')
+            'uid': data.get('bioguide_id', ''),
+            'location': 'DC', # don't parse whole address here
         }
         if 'first_name' in data and 'last_name' in data:
             adapted['name'] = u'{first_name} {last_name}'.format(**data)
@@ -82,12 +83,13 @@ class UnitedStatesData(DataAdapter):
         # district office numbers
         office_list = []
         for office in data.get('offices', []):
-            if not office['phone']:
+            if not 'phone' in office:
                 continue
             office_data = {
                 'name': office.get('city', ''),
                 'number': office.get('phone', ''),
-                'uid': office.get('id', '')
+                'uid': office.get('id', ''),
+                'type': 'district'
             }
             if 'city' in office and 'state' in office:
                 if 'address' in office and 'building' in office:
@@ -100,13 +102,14 @@ class UnitedStatesData(DataAdapter):
                 office_data['address'] = ''
 
             if 'latitude' in office and 'longitude' in office:
-                office_data['location'] = 'POINT({latitude}, {longitude})'.format(**office)
+                office_data['latlon'] = 'POINT({latitude}, {longitude})'.format(**office)
             office_list.append(office_data)
         return office_list
 
 
 class OpenStatesData(DataAdapter):
     def target(self, data):
+
         adapted = {
             'uid': data.get('leg_id', '')
         }
@@ -137,22 +140,33 @@ class OpenStatesData(DataAdapter):
             adapted['number'] = data.get('offices',[{}])[0].get('phone', '')
             # fallback to none
 
-        adapted['district'] = data.get('district', '')
+        try:
+            district_num = int(data.get('district')[3:])
+            adapted['district'] = district_num
+        except ValueError:
+            adapted['district'] = data.get('district', '')
 
         return adapted
 
     def offices(self, data):
         office_list = []
         for office in data.get('offices', []):
-            if office['type'] == 'capitol':
+            if office.get('type') == 'capitol':
                 # capitol office is captured in target.number
                 continue
-            if not office['phone']:
+            if not 'phone' in office:
                 continue
+
+            office_name = office.get('name', '')
+            office_name = office_name.replace('Office', '').replace('office', '')
+            if '#' in office_name:
+                office_name = office_name.split('#')[0]
+
             office_list.append({
-                'name': office.get('name', ''),
+                'name': office_name,
                 'address': office.get('address', ''),
-                'number': office.get('phone', '')
+                'number': office.get('phone', ''),
+                'type': office.get('type', '')
             })
         return office_list
 
@@ -160,7 +174,6 @@ class OpenStatesData(DataAdapter):
 class GovernorAdapter(DataAdapter):
     def target(self, data):
         adapted = {
-            'name': u'{first_name} {last_name}'.format(**data),
             'title': data.get('title', ''),
             'number': data.get('phone', ''),
             'uid': data.get('state', ''),
@@ -172,7 +185,11 @@ class GovernorAdapter(DataAdapter):
             adapted['name'] = data['full_name']
         else:
             adapted['name'] = 'Unknown'
+
         return adapted
+
+    def offices(self, data):
+        return []
 
 
 class OpenNorthAdapter(DataAdapter):
@@ -210,15 +227,16 @@ class OpenNorthAdapter(DataAdapter):
     def offices(self, data):
         office_list = []
         for office in data.get('offices', []):
-            if office['type'] == 'legislature':
+            if office.get('type') == 'legislature':
                 # legislature office is captured in target.number
                 continue
-            if not office['tel']:
+            if not 'tel' in office:
                 continue
             office_list.append({
                 'name': office.get('type', ''),
                 'address': office.get('postal', ''),
-                'number': office.get('tel', '')
+                'number': office.get('tel', ''),
+                'type': office.get('type', '')
             })
         return office_list
 

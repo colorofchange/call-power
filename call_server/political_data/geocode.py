@@ -24,7 +24,7 @@ class Location(geopy.Location):
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return getattr(self, attr)
-        elif self._wrapped_obj and attr in dir(self._wrapped_obj):
+        elif hasattr(self, '_wrapped_obj') and attr in dir(self._wrapped_obj):
             return getattr(self._wrapped_obj, attr)
         else:
             raise AttributeError('Location object has no attribute %s' % attr)
@@ -32,25 +32,25 @@ class Location(geopy.Location):
     def __repr__(self):
         try:
             if self.latitude and self.longitude: 
-                return "Location((%s, %s, %s))" % (
+                return "<Location((%s, %s, %s))>" % (
                     self.latitude, self.longitude, self.altitude
                 )
         except AttributeError:
             pass
         try:
-            return "Location(%s) - %s" % ( self.postal, self.service )
+            return "<Location(%s) - %s>" % ( self.postal, self.service )
         except AttributeError:
             pass
         try:
-            return "Location(%s) - %s" % ( self.address, self.service )
+            return "<Location(%s) - %s>" % ( self.address, self.service )
         except AttributeError:
             pass
         try:
-            return "Location(%s) - %s" % ( self.raw, self.service )
+            return "<Location(%s) - %s>" % ( self.raw, self.service )
         except AttributeError:
             pass
 
-        return "Location(%s)" % self.__dict__
+        return "<Location(%s)>" % self.__dict__
 
 
     def _find_in_raw(self, field):
@@ -184,6 +184,10 @@ class Geocoder(object):
 
     def geocode(self, address, postal_only=False):
         service = self.get_service_name()
+
+        if not address:
+            raise LocationError('empty string passed to geocoder')
+            return None
 
         try:
             if service == GOOGLE_SERVICE:

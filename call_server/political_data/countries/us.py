@@ -8,6 +8,7 @@ from ..geocode import Geocoder, LocationError
 from ..constants import US_STATES
 from ...campaign.constants import (LOCATION_POSTAL, LOCATION_ADDRESS, LOCATION_LATLON)
 
+import random
 import csv
 import yaml
 import collections
@@ -61,7 +62,9 @@ class USCampaignType_Congress(USCampaignType):
     target_orders = [
         ('shuffle', _("Shuffle")),
         ('upper-first', _("Senate First")),
-        ('lower-first', _("House First"))
+        ('lower-first', _("House First")),
+        ('democrats-first', _("Democrats First")),
+        ('republicans-first', _("Republicans First")),
     ]
 
     @property
@@ -70,28 +73,40 @@ class USCampaignType_Congress(USCampaignType):
 
     def all_targets(self, location, campaign_region=None):
         return {
-            'upper': self._get_congress_upper(location),
-            'lower': self._get_congress_lower(location)
+            'upper': self._get_senators(location),
+            'lower': self._get_representative(location),
+            'republicans': self._get_congress_party(location, 'Republican'),
+            'democrats': self._get_congress_party(location, 'Democrat'),
         }
 
-    def sort_targets(self, targets, subtype, order):
-        result = []
+    def sort_targets(self, targets, subtype, order, shuffle_chamber=True):
+        upper_targets = list(targets.get('upper'))
+        lower_targets = list(targets.get('lower'))
+        republican_targets = list(targets.get('republicans'))
+        democrat_targets = list(targets.get('democrats'))
+
+        # by default, shuffle target ordering within chamber
+        if shuffle_chamber:
+            random.shuffle(upper_targets)
+            random.shuffle(lower_targets)
 
         if subtype == 'both':
             if order == 'upper-first':
-                result.extend(targets.get('upper'))
-                result.extend(targets.get('lower'))
+                return upper_targets + lower_targets
+            elif order == 'democrats-first':
+                return democrat_targets + republican_targets
+            elif order == 'republicans-first':
+                return republican_targets + democrat_targets
             else:
-                result.extend(targets.get('lower'))
-                result.extend(targets.get('upper'))
+                return lower_targets + upper_targets
         elif subtype == 'upper':
-            result.extend(targets.get('upper'))
+            return upper_targets
         elif subtype == 'lower':
-            result.extend(targets.get('lower'))
+            return lower_targets
+        elif subtype == 'exec':
+            return exec_targets
 
-        return result
-
-    def _get_congress_upper(self, location):
+    def _get_senators(self, location):
         districts = self.data_provider.get_districts(location.postal)
         # This is a set because zipcodes may cross states
         states = set(d['state'] for d in districts)
@@ -100,13 +115,31 @@ class USCampaignType_Congress(USCampaignType):
             for senator in self.data_provider.get_senators(state):
                 yield self.data_provider.KEY_BIOGUIDE.format(**senator)
 
-    def _get_congress_lower(self, location):
+    def _get_representative(self, location):
         districts = self.data_provider.get_districts(location.postal)
 
         for district in districts:
             rep = self.data_provider.get_house_members(district['state'], district['house_district'])
             if rep:
                 yield self.data_provider.KEY_BIOGUIDE.format(**rep[0])
+
+    def _get_congress_party(self, location, party):
+        districts = self.data_provider.get_districts(location.postal)
+        # This is a set because zipcodes may cross states
+        states = set(d['state'] for d in districts)
+
+        matched_party = []
+
+        for state in states:
+            for senator in self.data_provider.get_senators(state):
+                if senator.get('party') == party:
+                    matched_party.append(self.data_provider.KEY_BIOGUIDE.format(**senator))
+
+        for district in districts:
+            rep = self.data_provider.get_house_members(district['state'], district['house_district'])
+            if rep and rep[0].get('party') == party:
+                matched_party.append(self.data_provider.KEY_BIOGUIDE.format(**rep[0]))
+        return matched_party
 
 
 class USCampaignType_State(USCampaignType):
@@ -142,27 +175,30 @@ class USCampaignType_State(USCampaignType):
             'lower': self._get_state_lower(location, campaign_region)
         }
 
-    def sort_targets(self, targets, subtype, order):
-        result = []
+    def sort_targets(self, targets, subtype, order, shuffle_chamber=True):
+        upper_targets = list(targets.get('upper'))
+        lower_targets = list(targets.get('lower'))
+        exec_targets = list(targets.get('exec'))
+
+        # by default, shuffle target ordering within chamber
+        if shuffle_chamber:
+            random.shuffle(upper_targets)
+            random.shuffle(lower_targets)
 
         if subtype == 'both':
             if order == 'upper-first':
-                result.extend(targets.get('upper'))
-                result.extend(targets.get('lower'))
+                return upper_targets + lower_targets
             else:
-                result.extend(targets.get('lower'))
-                result.extend(targets.get('upper'))
+                return lower_targets + upper_targets
         elif subtype == 'upper':
-            result.extend(targets.get('upper'))
+            return upper_targets
         elif subtype == 'lower':
-            result.extend(targets.get('lower'))
+            return lower_targets
         elif subtype == 'exec':
-            result.extend(targets.get('exec'))
-
-        return result
+            return exec_targets
 
     def _get_state_governor(self, location, campaign_region=None):
-        return self.data_provider.get_state_governor(location.state)
+        return [self.data_provider.KEY_GOVERNOR.format(state=location.state)]
 
     def _get_state_upper(self, location, campaign_region=None):
         legislators = self.data_provider.get_state_legislators(location)
@@ -208,9 +244,15 @@ class USDataProvider(DataProvider):
         self._cache = cache
         self._geocoder = Geocoder(country='US')
 
-    def get_location(self, locate_by, raw):
+    def get_location(self, locate_by, raw, ignore_local_cache=False):
         if locate_by == LOCATION_POSTAL:
-            return self._geocoder.postal(raw, provider=self)
+            if ignore_local_cache:
+                if type(raw) == dict:
+                    return self._geocoder.postal(raw.get('zipcode'), provider=None)
+                else:
+                    return self._geocoder.postal(raw, provider=None)
+            else:
+                return self._geocoder.postal(raw, provider=self)
         elif locate_by == LOCATION_ADDRESS:
             return self._geocoder.geocode(raw)
         elif locate_by == LOCATION_LATLON:
@@ -271,6 +313,7 @@ class USDataProvider(DataProvider):
                     'district':    district,
                     'offices':     offices.get(info['id']['bioguide'], []),
                     'current':     term['current'],
+                    'party':       term['party'],
                 }
 
                 direct_key = self.KEY_BIOGUIDE.format(**record)
@@ -317,7 +360,7 @@ class USDataProvider(DataProvider):
         Load US state governor data from saved file
         Returns a dictionary keyed by state to cache for fast lookup
 
-        eg us_state:governor:CA = [{'title':'Governor', 'name':'Jerry Brown Jr.', 'phone': '18008076755'}]
+        eg us_state:governor:CA = [{'title':'Governor', 'name':'Jerry Brown Jr.', 'phone': '18008076755', 'state': 'CA', 'state_name': 'California'}]
         """
         governors = collections.defaultdict(list)
 
@@ -325,13 +368,14 @@ class USDataProvider(DataProvider):
             reader = csv.DictReader(f)
 
             for l in reader:
-                direct_key = self.KEY_GOVERNOR.format(**{'state': l['state']})
+                direct_key = self.KEY_GOVERNOR.format(state=l['state_abbr'])
                 d = {
                     'title': 'Governor',
                     'first_name': l.get('first_name'),
                     'last_name': l.get('last_name'),
                     'phone': l.get('phone'),
-                    'state': l.get('state')
+                    'state': l.get('state_abbr'),
+                    'state_name': l.get('state_name')
                 }
                 governors[direct_key] = [d, ]
         return governors
@@ -368,9 +412,11 @@ class USDataProvider(DataProvider):
 
     # convenience methods for easy house, senate, district access
     def get_executive(self):
-        # return Whitehouse comment line
-        return [{'office': 'Whitehouse Comment Line',
-                'number': '12024561111'}]
+        # Whitehouse comment line is disconnected
+        # return [{'office': 'Whitehouse Comment Line',
+        #        'number': '12024561111'}]
+        return [{'office': 'Whitehouse Switchboard',
+                'number': '12024561414'}]
 
     def get_house_members(self, state, district):
         key = self.KEY_HOUSE.format(state=state, district=district)
@@ -389,9 +435,12 @@ class USDataProvider(DataProvider):
         return self.cache_get(key)
 
     def get_state_legislators(self, location):
-        if not location.latitude and location.longitude:
-            raise LocationError('USDataProvider.get_state_legislators requires location with lat/lon')
-            
+        if not (location.latitude and location.longitude):
+            location = self.get_location(LOCATION_POSTAL, location.raw, ignore_local_cache=True)
+        
+        if not (location.latitude and location.longitude):
+            raise LocationError('USDataProvider.get_state_legislators requires location with lat/lon')    
+
         # legislators = pyopenstates.locate_legislators(location.latitude, location.longitude)
         legislators = pyopenstates.search_legislators(state=location.state)
 

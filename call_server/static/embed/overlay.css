@@ -26,6 +26,7 @@
 }
 
 .overlay .modal {
+  display: block;
   cursor: auto;
   position: absolute;
   z-index: 101;
@@ -34,7 +35,7 @@
   right: 0;
   left: 0;
   margin: auto;
-  max-width: 50%;
+  max-width: 75%;
   max-height: 75%;
   overflow-y: scroll;
   padding: 20px;
@@ -50,4 +51,13 @@
 
 .overlay.shown {
   opacity: 1;
+}
+
+.overlay button.close {
+  float: right;
+  line-height: 0.5em;
+}
+.overlay a.closeText {
+  position: fixed;
+  bottom: 15%;
 }

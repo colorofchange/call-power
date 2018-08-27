@@ -116,6 +116,7 @@
                     <input type="hidden" name="target_set-{{loop.index0}}-order" value="{{loop.index0}}" />
                     <input type="hidden" name="target_set-{{loop.index0}}-title" value="{{t.title}}" />
                     <input type="hidden" name="target_set-{{loop.index0}}-name" value="{{t.name}}" />
+                    <input type="hidden" name="target_set-{{loop.index0}}-location" value="{{t.location or ''}}" />
                     <input type="hidden" name="target_set-{{loop.index0}}-number" value="{{t.number.international}}" />
                     <input type="hidden" name="target_set-{{loop.index0}}-uid" value="{{t.uid}}" />
                     {% endfor %}
@@ -127,6 +128,7 @@
         </div>
 
         {{render_field_default(form.target_ordering) }}
+        {{render_field_default(form.target_shuffle_chamber, offset='col-sm-offset-2') }}
         {{render_field_default(form.target_offices) }}
         {{render_field_default(form.call_limit, offset='col-sm-offset-2') }}
 
@@ -147,7 +149,7 @@
             <div class="pull-right"><a class="btn btn-default" href="/admin/system" target="_blank">Get More</a> </div>
         </div>
         {{render_field_default(form.allow_call_in, offset='col-sm-offset-2') }}
-
+        {{render_field_default(form.allow_intl_calls, offset='col-sm-offset-2') }}
         {{render_field_default(form.prompt_schedule, offset='col-sm-offset-2') }}
     </fieldset>
 
@@ -186,11 +188,13 @@
 <script type="text/template" id="search-results-item-tmpl">
     <li class="result">
         <a data-object='{ "title":"<%= data.title %>",
-                          "name":"<%= data.first_name %> <%= data.last_name %><% if (data.office_name){ %> <%= data.office_name %> office<% } %>",
+                          "name":"<%= data.first_name %> <%= data.last_name %>",
+                          <% if (data.location){ %> "location": "<%= data.location %>", <% } %>
                           "number":"<%= data.phone %>",
                           "uid": "<%= data.uid %>"
                         }'>
-            <span class="text"><%= data.title %> <%= data.first_name %> <%= data.last_name %> <% if (data.office_name){ %>(<%= data.office_name %>)<% } %></span>
+            <span class="text"><%= data.title %> <%= data.first_name %> <%= data.last_name %></span>
+             <% if (data.location){ %><span class="text">(<%= data.location %>)</span><% } %>
             <span class="phone"><%= data.phone %></span>
         </a>
     </li>
@@ -199,6 +203,7 @@
 <script type="text/template" id="target-item-tmpl">
     <span data-field="title" contenteditable="plaintext-only" placeholder="Title"><%= data.title %></span>
     <span data-field="name" contenteditable="plaintext-only" placeholder="Name"><%= data.name %></span>
+    <span data-field="location" contenteditable="plaintext-only" placeholder="Location" class="display-parens"><%= data.location %></span>
     <span data-field="number" contenteditable="plaintext-only" placeholder="Phone"><%= data.number %></span>
 
     <div class="pull-right">

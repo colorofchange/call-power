@@ -26,7 +26,7 @@ Campaign Configuration
 1) Create a campaign with one of several types, to determine how callers are matched to targets.
 
 * _Executive_ connects callers to the Whitehouse Switchboard, or to a specific office if known
-* _Congress_ connects callers to their Senators, Representative, or both. Uses data from the Sunlight Foundation.
+* _Congress_ connects callers to their Senators, Representative, or both. Uses data from the TheUnitedStates.io.
 * _State_ connects callers to their Governor or State Legislators. Uses the OpenStates API.
 * _Local_ connects callers to a local official. Campaigners must enter these numbers in advance.
 * _Custom_ can connect callers to corporate offices, local officals, or any other phone number entered in advance.
@@ -43,6 +43,8 @@ Action Integration
 For most uses, you can just place the `<script>` tag provided in the launch page into your action platform. This will add a post-submit callback to your action form to connect the caller, and optionally display the script in a lightbox.
 
 For more complex integrations, Call Power provides [javascript embeds](INTEGRATION_JS.md) and a full [json API](INTEGRATION_API.md).
+
+Individual actions can also be synced to CRMs, via a [batch process](INTEGRATION_CRM.md).
 
 Installation Instructions
 -------------------

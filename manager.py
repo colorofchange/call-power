@@ -10,8 +10,9 @@ from flask_assets import ManageAssets
 from flask_rq2.script import RQManager
 
 from call_server.app import create_app
-from call_server.extensions import assets, db, cache
+from call_server.extensions import assets, db, cache, rq
 from call_server import political_data
+from call_server import sync
 from call_server.user import User, USER_ADMIN, USER_ACTIVE
 
 log = logging.getLogger(__name__)
@@ -48,6 +49,11 @@ def runserver(external=None):
         political_data.load_data(cache)
 
     host = (os.environ.get('APP_HOST') or '127.0.0.1')
+    
+    app.jinja_env.cache = None
+    app.jinja_env.auto_reload = True
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+
     app.run(debug=True, use_reloader=True, host=host)
 
 
@@ -62,10 +68,72 @@ def loadpoliticaldata():
 
     log.info("loading political data")
     with app.app_context():
-        cache.clear()
         n = political_data.load_data(cache)
     log.info("done loading %d objects" % n)
 
+@manager.command
+def stop_scheduled_calls(campaign_id, date):
+    # unsubscribe outgoing recurring calls created before date
+    from datetime import datetime
+    from call_server.campaign import Campaign
+    from call_server.schedule import ScheduleCall
+    before_date = datetime.strptime(date, '%Y-%m-%d')
+    campaign = Campaign.query.get(campaign_id)
+    scheduled_calls = ScheduleCall.query.filter(campaign==campaign, ScheduleCall.created_at <= before_date).all()
+    print 'This will stop all {} scheduled calls for campaign {} created before {}'.format(len(scheduled_calls), campaign.name, date)
+    confirm = raw_input('Confirm (Y/N): ')
+    if confirm == 'Y':
+        for sc in scheduled_calls:
+            print "canceling job", sc.job_id
+            sc.stop_job()
+            db.session.add(sc)
+        db.session.commit()
+        print "done"
+    else:
+        print "exit"
+
+@manager.command
+def restart_scheduled_calls(campaign_id, accept_all=False):
+    # rebind outgoing recurring calls
+    from call_server.campaign import Campaign
+    from call_server.campaign.constants import STATUS_LIVE
+    from call_server.schedule import ScheduleCall
+
+    if campaign_id == 'all':
+        campaigns = Campaign.query.filter_by(prompt_schedule=True, status_code=STATUS_LIVE).all()
+    else:
+        campaigns = [Campaign.query.get(campaign_id),]
+
+    print 'This will restart all subscribed scheduled calls for campaign {}'.format(campaign_id)
+    if accept_all:
+        confirm = 'Y'
+    else:
+        confirm = raw_input('Confirm (Y/N): ')
+    if confirm == 'Y':
+        for campaign in campaigns:
+            scheduled_calls = ScheduleCall.query.filter_by(campaign=campaign, subscribed=True).all()
+            print 'Scheduled calls for {}: {}'.format(campaign.name, len(scheduled_calls))
+            rq_scheduler = rq.get_scheduler()
+            for sc in scheduled_calls:
+                if not sc.job_id in rq_scheduler:
+                    print "resetting job", sc.job_id
+                    sc.start_job()
+                    db.session.add(sc)
+            db.session.commit()
+            print "done"
+        else:
+            print "exit"
+
+@manager.command
+def crmsync(campaigns='all'):
+    print "Sync to CRM"
+    if campaigns == 'all':
+        campaigns_list = 'all'
+    elif ',' in campaigns:
+        campaigns_list = campaigns.split(',')
+    else:
+        campaigns_list = (campaigns,)
+    sync.jobs.sync_campaigns(campaigns_list)
 
 @manager.command
 def redis_clear():

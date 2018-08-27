@@ -6,9 +6,7 @@ from flask_store.sqla import FlaskStoreType
 from sqlalchemy import UniqueConstraint
 
 from ..extensions import db, cache
-from ..utils import convert_to_dict
-from ..political_data.adapters import adapt_by_key
-from ..political_data import get_country_data
+from ..political_data import get_country_data, check_political_data_cache
 from .constants import (STRING_LEN, TWILIO_SID_LENGTH, LANGUAGE_CHOICES,
                         CAMPAIGN_STATUS, STATUS_PAUSED,
                         SEGMENT_BY_CHOICES, LOCATION_CHOICES, INCLUDE_SPECIAL_CHOCIES, TARGET_OFFICE_CHOICES)
@@ -34,9 +32,11 @@ class Campaign(db.Model):
                                  order_by='campaign_target_sets.c.order',
                                  backref=db.backref('campaigns'))
     target_ordering = db.Column(db.String(STRING_LEN))
+    target_shuffle_chamber = db.Column(db.Boolean, default=True)
     target_offices = db.Column(db.String(STRING_LEN))
     call_maximum = db.Column(db.SmallInteger, nullable=True)
     allow_call_in = db.Column(db.Boolean, default=False)
+    allow_intl_calls = db.Column(db.Boolean, default=False)
     
     phone_number_set = db.relationship('TwilioPhoneNumber', secondary='campaign_phone_numbers',
                                        backref=db.backref('campaigns'))
@@ -131,7 +131,7 @@ class Campaign(db.Model):
 
     def phone_numbers(self, region_code=None):
         "Phone numbers for this campaign, can be limited to a specified region code (ISO-2)"
-        if region_code:
+        if region_code and not self.allow_intl_calls:
             # convert region_code to country_code for comparison
             country_code = phone_number.phonenumbers.country_code_for_region(region_code.upper())
             return [n.number.e164 for n in self.phone_number_set if n.number.country_code == country_code]
@@ -162,7 +162,13 @@ class Campaign(db.Model):
     def targets_display(self):
         "Display method for this campaign's target list if specified, or subtype (like Congress - Senate)"
         if self.target_set:
-            return ", ".join(["%s" % t.name for t in self.target_set])
+            target_strings = []
+            for t in self.target_set:
+                if t.location:
+                    target_strings.append("%s (%s)" % (t.name, t.location))
+                else:
+                    target_strings.append("%s" % t.name)
+            return ", ".join(target_strings)
         else:
             return self.campaign_subtype_display()
 
@@ -170,6 +176,10 @@ class Campaign(db.Model):
         "Display method for this campaign's target offices"
         val = dict(TARGET_OFFICE_CHOICES).get(self.target_offices, '')
         return val
+
+    def scheduled_calls_subscribers(self):
+        "Number of scheduled calls for this campaign where subscribed = True"
+        return self.scheduled_call_subscribed.filter_by(subscribed=True)
 
     @staticmethod
     def get_campaign_type_choices(country_code, cache=cache):
@@ -213,6 +223,7 @@ class Target(db.Model):
     name = db.Column(db.String(STRING_LEN), nullable=False, unique=False)
     district = db.Column(db.String(STRING_LEN), nullable=True)
     number = db.Column(phone_number.PhoneNumberType())
+    location = db.Column(db.String(STRING_LEN), nullable=True, unique=False)
     offices = db.relationship('TargetOffice', backref="target")
 
     def __unicode__(self):
@@ -224,53 +235,57 @@ class Target(db.Model):
     def phone_number(self):
         return self.number.e164
 
-
     @classmethod
-    def get_or_cache_key(cls, uid, prefix=None, cache=cache):
+    def get_or_create(cls, uid, prefix=None, cache=cache):
         if prefix:
             key = '%s:%s' % (prefix, uid)
         else:
             key = uid
         t = Target.query.filter(Target.uid == key) \
-            .order_by(Target.id.desc()).first()  # return most recently cached target
-        cached = False
+            .order_by(Target.id.desc()).first()
+        created = False
+
+        data = check_political_data_cache(key, cache)
+        offices = data.pop('offices')
 
         if not t:
-            adapter = adapt_by_key(key)
-            adapted_key, adapter_suffix = adapter.key(key)
-            cached_obj = cache.get(adapted_key)
-            if type(cached_obj) is list:
-                data = adapter.target(cached_obj[0])
-                offices = adapter.offices(cached_obj[0])
-            elif type(cached_obj) is dict:
-                data = adapter.target(cached_obj)
-                offices = adapter.offices(cached_obj)
-            else:
-                current_app.logger.error('Target.get_or_cache_key got unknown cached_obj type %s' % type(cached_obj))
-                # do it live
-                data = cached_obj
-                try:
-                    offices = cached_obj.get('offices', [])
-                except AttributeError:
-                    offices = []
-
             # create target object
             t = Target(**data)
-            t.uid = adapted_key
             db.session.add(t)
-            # create office objects, link to target
-            for office in offices:
-                if adapter_suffix:
-                    if not office['uid'] == adapter_suffix:
-                        continue
+            created = True
+        else:
+            # check for updated data
+            check_attrs = ['location', 'number']
+            for a in check_attrs:
+                if getattr(t, a) != data.get(a):
+                    setattr(t, a, data.get(a))
+                    created = True
+        
+        if offices:
+            existing_target_office_uids = [o.uid for o in t.offices]
+            # need to check against existing offices, because the underlying data may have been updated
 
-                o = TargetOffice(**office)
-                o.target = t
-                db.session.add(o)
+            for office in offices:
+                if office.get('uid') in existing_target_office_uids:
+                    # existing office, check to update the location and type
+                    o = TargetOffice.query.filter_by(target_id=t.id, uid=office.get('uid')).first()
+                    check_attrs = ['name', 'type', 'address', 'number']
+                    for a in check_attrs:
+                        if getattr(o, a) != office.get(a):
+                            setattr(o, a, office.get(a))
+                            created = True
+                else:
+                     # create new office object, link to target
+                    o = TargetOffice(**office)
+                    o.target = t
+                    db.session.add(o)
+                    created = True
+
+        if created:
             # save to db
             db.session.commit()
-            cached = True
-        return t, cached
+
+        return t, created
 
 
 class TargetOffice(db.Model):
@@ -280,7 +295,8 @@ class TargetOffice(db.Model):
     uid = db.Column(db.String(STRING_LEN), index=True, nullable=True)  # for US, this is bioguide_id-location_name
     name = db.Column(db.String(STRING_LEN), nullable=True)
     address = db.Column(db.String(STRING_LEN), nullable=True, unique=False)
-    location = db.Column(db.String(STRING_LEN), nullable=True, unique=False)
+    latlon = db.Column(db.String(STRING_LEN), nullable=True, unique=False)
+    type = db.Column(db.String(STRING_LEN), nullable=True, unique=False)
     number = db.Column(phone_number.PhoneNumberType())
     target_id = db.Column(db.Integer, db.ForeignKey('campaign_target.id'))
 
