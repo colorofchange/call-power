@@ -441,9 +441,8 @@ class USDataProvider(DataProvider):
         if not (location.latitude and location.longitude):
             raise LocationError('USDataProvider.get_state_legislators requires location with lat/lon')    
 
-        print(location)
-        # legislators = pyopenstates.locate_legislators(location.latitude, location.longitude)
-        legislators = pyopenstates.search_legislators(state=location.state)
+        legislators = pyopenstates.locate_legislators(location.latitude, location.longitude)
+        # legislators = pyopenstates.search_legislators(state=location.state)
 
         # save results individually in local cache
         for leg in legislators:
