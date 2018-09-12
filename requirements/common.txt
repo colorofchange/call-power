@@ -43,6 +43,7 @@ python-magic==0.4.15
 python-mimeparse==0.1.4
 pytz==2017.2
 requests==2.2.1
+rq-scheduler==0.8.3
 six==1.10.0
 speaklater==1.3
 pyopenstates==1.1.0
