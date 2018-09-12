@@ -208,7 +208,7 @@ def make_calls(params, campaign):
         # check if campaign custom segmenting specified
         if campaign.segment_by == SEGMENT_BY_CUSTOM:
             params['targetIds'] = [t.uid for t in campaign.target_set]
-            if campaign.target_ordering == 'shuffle':      
+            if campaign.target_ordering == 'shuffle':
                 # reshuffle for each caller
                 random.shuffle(params['targetIds'])
         elif campaign.segment_by == SEGMENT_BY_LOCATION:
@@ -257,13 +257,13 @@ def schedule_prompt(params, campaign):
 
     resp = VoiceResponse()
     g = Gather(num_digits=1, timeout=3, method="POST", action=url_for("call.schedule_parse", **params))
-    
+
     existing_schedule = ScheduleCall.query.filter_by(campaign_id=campaign.id, phone_number=params['userPhone']).first()
     if existing_schedule and existing_schedule.subscribed:
         play_or_say(g, campaign.audio('msg_alter_schedule'), lang=campaign.language_code)
     else:
         play_or_say(g, campaign.audio('msg_prompt_schedule'), lang=campaign.language_code)
-    
+
     resp.append(g)
 
     # in case the timeout occurs, we need a redirect verb to ensure that the call doesn't drop
@@ -569,7 +569,13 @@ def make_single():
     i = int(request.values.get('call_index', 0))
     params['call_index'] = i
 
-    (uid, prefix) = parse_target(params['targetIds'][i])
+    try:
+        (uid, prefix) = parse_target(params['targetIds'][i])
+    except IndexError:
+        # if index is out of bounds, set index to first element
+        i = 0
+        (uid, prefix) = parse_target(params['targetIds'][0])
+
     (current_target, created) = Target.get_or_create(uid, prefix)
     if created:
         # save Target to database
@@ -614,7 +620,7 @@ def make_single():
     else:
         office_location = current_target.location or 'capitol'
         office_type = 'main'
-        
+
     play_or_say(resp, campaign.audio('msg_target_intro'),
         title=current_target.title,
         name=current_target.name,
