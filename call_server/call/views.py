@@ -569,13 +569,7 @@ def make_single():
     i = int(request.values.get('call_index', 0))
     params['call_index'] = i
 
-    try:
-        (uid, prefix) = parse_target(params['targetIds'][i])
-    except IndexError:
-        # if index is out of bounds, set index to first element
-        i = 0
-        (uid, prefix) = parse_target(params['targetIds'][0])
-
+    (uid, prefix) = parse_target(params['targetIds'][i])
     (current_target, created) = Target.get_or_create(uid, prefix)
     if created:
         # save Target to database

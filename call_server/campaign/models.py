@@ -37,7 +37,7 @@ class Campaign(db.Model):
     call_maximum = db.Column(db.SmallInteger, nullable=True)
     allow_call_in = db.Column(db.Boolean, default=False)
     allow_intl_calls = db.Column(db.Boolean, default=False)
-    
+
     phone_number_set = db.relationship('TwilioPhoneNumber', secondary='campaign_phone_numbers',
                                        backref=db.backref('campaigns'))
     prompt_schedule = db.Column(db.Boolean, default=False)
@@ -253,14 +253,15 @@ class Target(db.Model):
             t = Target(**data)
             db.session.add(t)
             created = True
-        else:
+        elif data:
             # check for updated data
             check_attrs = ['location', 'number']
             for a in check_attrs:
-                if getattr(t, a) != data.get(a):
-                    setattr(t, a, data.get(a))
+                new_val = data.get(a)
+                if new_val and getattr(t, a) != new_val:
+                    setattr(t, a, new_val)
                     created = True
-        
+
         if offices:
             existing_target_office_uids = [o.uid for o in t.offices]
             # need to check against existing offices, because the underlying data may have been updated
